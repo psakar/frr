@@ -1,55 +1,59 @@
-From f5658ed4cecb3ad81cb838fb90467930943ab2ef Mon Sep 17 00:00:00 2001
+From dbbe4040299d2a02179cc390d9d7e2aab59833da Mon Sep 17 00:00:00 2001
 From: Alexandre Derumier <aderumier@odiso.com>
 Date: Mon, 22 May 2023 19:31:28 +0200
-Subject: [PATCH] bgpd : add an option for RT auto-derivation to force AS
+Subject: [PATCH 2/6] bgpd : add an option for RT auto-derivation to force AS
 
 Allow to define a custom AS for autort AS:VNI
 
 Usefull for evpn with ebgp, where we can't auto-derivated from the router AS,
 as route-target AS:VNI need to be the same on the each peer
 
+Link: https://github.com/FRRouting/frr/pull/7535
 Signed-off-by: Alexandre Derumier <aderumier@odiso.com>
+    [ GG: ported to latest stable 10.2.1 ]
+Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
 ---
- bgpd/bgp_evpn.c     | 12 ++++++++++--
- bgpd/bgp_evpn_vty.c | 47 +++++++++++++++++++++++++++++++++------------
+ bgpd/bgp_evpn.c     | 13 +++++++++++--
+ bgpd/bgp_evpn_vty.c | 46 +++++++++++++++++++++++++++++++++------------
  bgpd/bgpd.h         |  3 +++
  3 files changed, 48 insertions(+), 14 deletions(-)
 
-diff --git a/bgpd/bgp_evpn.c b/bgpd/bgp_evpn.c
-index 28ea443c6..d44c6bd5d 100644
---- a/bgpd/bgp_evpn.c
-+++ b/bgpd/bgp_evpn.c
-@@ -591,7 +591,11 @@ static void form_auto_rt(struct bgp *bgp, vni_t vni, struct list *rtl,
+Index: b/bgpd/bgp_evpn.c
+===================================================================
+--- a/bgpd/bgp_evpn.c	2025-03-07 11:09:47.315423809 +0100
++++ b/bgpd/bgp_evpn.c	2025-03-07 11:09:47.312423806 +0100
+@@ -622,7 +622,12 @@
  
  	if (bgp->advertise_autort_rfc8365)
- 		vni |= EVPN_AUTORT_VXLAN;
--	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
+ 		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
+-	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval, true);
++
 +	if (bgp->autort_as) {
-+		encode_route_target_as((bgp->autort_as & 0xFFFF), vni, &eval);
-+	} else {
-+		encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
++		encode_route_target_as((bgp->autort_as & 0xFFFF), vni, &eval, true);
++	}else {
++		encode_route_target_as((bgp->as & 0xFFFF), vni, &eval, true);
 +	}
  
  	ecomadd = ecommunity_new();
  	ecommunity_add_val(ecomadd, &eval, false, false);
-@@ -5174,7 +5178,11 @@ void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl,
+@@ -5490,7 +5495,11 @@
  	if (bgp->advertise_autort_rfc8365)
- 		vni |= EVPN_AUTORT_VXLAN;
+ 		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
  
--	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
+-	encode_route_target_as((bgp->as & 0xFFFF), vni, &eval, true);
 +	if (bgp->autort_as) {
-+		encode_route_target_as((bgp->autort_as & 0xFFFF), vni, &eval);
-+	} else {
-+		encode_route_target_as((bgp->as & 0xFFFF), vni, &eval);
++		encode_route_target_as((bgp->autort_as & 0xFFFF), vni, &eval, true);
++	}else {
++		encode_route_target_as((bgp->as & 0xFFFF), vni, &eval, true);
 +	}
  
  	ecom_auto = ecommunity_new();
  	ecommunity_add_val(ecom_auto, &eval, false, false);
-diff --git a/bgpd/bgp_evpn_vty.c b/bgpd/bgp_evpn_vty.c
-index 6b63c6e3a..11012f3b8 100644
---- a/bgpd/bgp_evpn_vty.c
-+++ b/bgpd/bgp_evpn_vty.c
-@@ -3649,32 +3649,52 @@ DEFUN (no_bgp_evpn_advertise_all_vni,
+Index: b/bgpd/bgp_evpn_vty.c
+===================================================================
+--- a/bgpd/bgp_evpn_vty.c	2025-03-07 11:09:47.315423809 +0100
++++ b/bgpd/bgp_evpn_vty.c	2025-03-07 11:09:47.313423807 +0100
+@@ -3744,32 +3744,51 @@
  	return CMD_SUCCESS;
  }
  
@@ -59,11 +63,11 @@ index 6b63c6e3a..11012f3b8 100644
 +DEFPY (bgp_evpn_advertise_autort,
 +       bgp_evpn_advertise_autort_cmd,
 +       "autort [rfc8365-compatible]$rfc8365 [as (1-65536)$as]",
++       NO_STR
         "Auto-derivation of RT\n"
 -       "Auto-derivation of RT using RFC8365\n")
 +       "Auto-derivation of RT using RFC8365\n"
-+       "Auto-derivation AS\n"
-+       "ASN\n")
++       "Auto-derivation AS\n")
  {
  	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
  
@@ -92,8 +96,7 @@ index 6b63c6e3a..11012f3b8 100644
         "Auto-derivation of RT\n"
 -       "Auto-derivation of RT using RFC8365\n")
 +       "Auto-derivation of RT using RFC8365\n"
-+       "Auto-derivation AS\n"
-+       "ASN\n")
++       "Auto-derivation AS\n")
  {
  	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
  
@@ -112,7 +115,7 @@ index 6b63c6e3a..11012f3b8 100644
  	return CMD_SUCCESS;
  }
  
-@@ -7121,6 +7141,9 @@ void bgp_config_write_evpn_info(struct vty *vty, struct bgp *bgp, afi_t afi,
+@@ -7286,6 +7305,9 @@
  	if (bgp->advertise_autort_rfc8365)
  		vty_out(vty, "  autort rfc8365-compatible\n");
  
@@ -122,7 +125,7 @@ index 6b63c6e3a..11012f3b8 100644
  	if (bgp->advertise_gw_macip)
  		vty_out(vty, "  advertise-default-gw\n");
  
-@@ -7354,8 +7377,8 @@ void bgp_ethernetvpn_init(void)
+@@ -7528,8 +7550,8 @@
  	install_element(BGP_EVPN_NODE, &evpnrt5_network_cmd);
  	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_all_vni_cmd);
  	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_all_vni_cmd);
@@ -133,11 +136,11 @@ index 6b63c6e3a..11012f3b8 100644
  	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_default_gw_cmd);
  	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_default_gw_cmd);
  	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_svi_ip_cmd);
-diff --git a/bgpd/bgpd.h b/bgpd/bgpd.h
-index 72b5b50fb..452062e3d 100644
---- a/bgpd/bgpd.h
-+++ b/bgpd/bgpd.h
-@@ -685,6 +685,9 @@ struct bgp {
+Index: b/bgpd/bgpd.h
+===================================================================
+--- a/bgpd/bgpd.h	2025-03-07 11:09:47.315423809 +0100
++++ b/bgpd/bgpd.h	2025-03-07 11:09:47.313423807 +0100
+@@ -745,6 +745,9 @@
  	/* EVPN - use RFC 8365 to auto-derive RT */
  	int advertise_autort_rfc8365;
  
@@ -147,6 +150,4 @@ index 72b5b50fb..452062e3d 100644
  	/*
  	 * Flooding mechanism for BUM packets for VxLAN-EVPN.
  	 */
--- 
-2.30.2
 

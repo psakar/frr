@@ -1,17 +1,18 @@
-From f098e90f4d690e771f63f48e0540a470faa91892 Mon Sep 17 00:00:00 2001
+From e608bc29e66291f7eafb9a9e17b13cc49ae0b726 Mon Sep 17 00:00:00 2001
 From: Alexandre Derumier <aderumier@odiso.com>
 Date: Wed, 25 Nov 2020 12:41:32 +0100
-Subject: [PATCH] enable bgp && bfd daemons
+Subject: [PATCH 1/6] enable bgp && bfd daemons
 
 Signed-off-by: Alexandre Derumier <aderumier@odiso.com>
+Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
 ---
  tools/etc/frr/daemons | 4 ++--
  1 file changed, 2 insertions(+), 2 deletions(-)
 
-diff --git a/tools/etc/frr/daemons b/tools/etc/frr/daemons
-index b1526888e..27bc120a7 100644
---- a/tools/etc/frr/daemons
-+++ b/tools/etc/frr/daemons
+Index: b/tools/etc/frr/daemons
+===================================================================
+--- a/tools/etc/frr/daemons	2025-03-07 11:09:47.197423679 +0100
++++ b/tools/etc/frr/daemons	2025-03-07 11:09:47.194423675 +0100
 @@ -14,7 +14,7 @@
  #
  # The watchfrr, zebra and staticd daemons are always started.
@@ -21,7 +22,7 @@ index b1526888e..27bc120a7 100644
  ospfd=no
  ospf6d=no
  ripd=no
-@@ -27,7 +27,7 @@ eigrpd=no
+@@ -28,7 +28,7 @@
  babeld=no
  sharpd=no
  pbrd=no
@@ -30,6 +31,4 @@ index b1526888e..27bc120a7 100644
  fabricd=no
  vrrpd=no
  pathd=no
--- 
-2.30.2
 
