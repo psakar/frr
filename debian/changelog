@@ -1,3 +1,15 @@
+frr (10.2.1-1+pve1) bookworm; urgency=medium
+
+  * update upstream source to 10.2.1
+
+  * port bgp autort patches and add topotests
+
+  * add fabricd dummy_as_loopback patches
+
+  * enable fabricd dummy_as_loopback option per default
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 07 Mar 2025 14:08:52 +0100
+
 frr (8.5.2-1+pve1) bookworm; urgency=medium
 
   * update upstream sources to current stable/8.5  (commit
