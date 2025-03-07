@@ -44,7 +44,7 @@ $(ORIG_SRC_TAR): $(BUILDDIR)
 deb: $(DEBS)
 $(OTHER_DEBS) $(DBG_DEBS): $(MAIN_DEB)
 $(MAIN_DEB): $(BUILDDIR)
-	cd $(BUILDDIR); dpkg-buildpackage -b -uc -us --build-profiles="pkg.frr.nortrlib"
+	cd $(BUILDDIR); dpkg-buildpackage -b -uc -us --build-profiles="pkg.frr.nortrlib,pkg.frr.notesttools"
 	lintian $(DEBS)
 
 .PHONY: dsc
