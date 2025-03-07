@@ -1,0 +1,125 @@
+From 7cf60fd0bdaa45311eea886cee6d1f290a4ac2d2 Mon Sep 17 00:00:00 2001
+From: Gabriel Goller <g.goller@proxmox.com>
+Date: Tue, 25 Feb 2025 10:13:34 +0100
+Subject: [PATCH 4/6] zebra: add ZEBRA_IF_DUMMY flag for dummy interfaces
+
+Introduce ZEBRA_IF_DUMMY interface flag to identify Linux dummy interfaces [0].
+These interfaces behave similarly to loopback interfaces and can be
+specially handled by daemons.
+
+[0]: https://github.com/torvalds/linux/blob/master/drivers/net/dummy.c
+
+Link: https://github.com/FRRouting/frr/pull/18242
+Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
+---
+ lib/if.h               | 1 +
+ zebra/if_netlink.c     | 3 +++
+ zebra/interface.c      | 7 +++++++
+ zebra/interface.h      | 6 +++++-
+ zebra/zebra_nb_state.c | 3 +++
+ 5 files changed, 19 insertions(+), 1 deletion(-)
+
+Index: b/lib/if.h
+===================================================================
+--- a/lib/if.h	2025-03-07 11:09:47.571424092 +0100
++++ b/lib/if.h	2025-03-07 11:09:47.568424088 +0100
+@@ -242,6 +242,7 @@
+ #define ZEBRA_INTERFACE_SUB        (1 << 1)
+ #define ZEBRA_INTERFACE_LINKDETECTION (1 << 2)
+ #define ZEBRA_INTERFACE_VRF_LOOPBACK (1 << 3)
++#define ZEBRA_INTERFACE_DUMMY (1 << 4)
+ 
+ 	/* Interface flags. */
+ 	uint64_t flags;
+Index: b/zebra/if_netlink.c
+===================================================================
+--- a/zebra/if_netlink.c	2025-03-07 11:09:47.571424092 +0100
++++ b/zebra/if_netlink.c	2025-03-07 11:09:47.568424088 +0100
+@@ -221,6 +221,8 @@
+ 		*zif_type = ZEBRA_IF_BOND;
+ 	else if (strcmp(kind, "gre") == 0)
+ 		*zif_type = ZEBRA_IF_GRE;
++	else if (strcmp(kind, "dummy") == 0)
++		*zif_type = ZEBRA_IF_DUMMY;
+ }
+ 
+ static void netlink_vrf_change(struct nlmsghdr *h, struct rtattr *tb,
+@@ -576,6 +578,7 @@
+ 	case ZEBRA_IF_MACVLAN:
+ 	case ZEBRA_IF_VETH:
+ 	case ZEBRA_IF_BOND:
++	case ZEBRA_IF_DUMMY:
+ 		break;
+ 	}
+ }
+Index: b/zebra/interface.c
+===================================================================
+--- a/zebra/interface.c	2025-03-07 11:09:47.571424092 +0100
++++ b/zebra/interface.c	2025-03-07 11:09:47.568424088 +0100
+@@ -584,6 +584,9 @@
+ 
+ 	zebra_interface_add_update(ifp);
+ 
++	if (IS_ZEBRA_IF_DUMMY(ifp))
++		SET_FLAG(ifp->status, ZEBRA_INTERFACE_DUMMY);
++
+ 	if (!CHECK_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE)) {
+ 		SET_FLAG(ifp->status, ZEBRA_INTERFACE_ACTIVE);
+ 
+@@ -1646,6 +1649,7 @@
+ 	case ZEBRA_IF_MACVLAN:
+ 	case ZEBRA_IF_VETH:
+ 	case ZEBRA_IF_BOND:
++	case ZEBRA_IF_DUMMY:
+ 		break;
+ 	}
+ }
+@@ -2398,6 +2402,9 @@
+ 	case ZEBRA_IF_GRE:
+ 		return "GRE";
+ 
++	case ZEBRA_IF_DUMMY:
++		return "dummy";
++
+ 	default:
+ 		return "Unknown";
+ 	}
+Index: b/zebra/interface.h
+===================================================================
+--- a/zebra/interface.h	2025-03-07 11:09:47.571424092 +0100
++++ b/zebra/interface.h	2025-03-07 11:09:47.569424090 +0100
+@@ -39,7 +39,8 @@
+ 	ZEBRA_IF_MACVLAN,   /* MAC VLAN interface*/
+ 	ZEBRA_IF_VETH,      /* VETH interface*/
+ 	ZEBRA_IF_BOND,	    /* Bond */
+-	ZEBRA_IF_GRE,      /* GRE interface */
++	ZEBRA_IF_GRE,       /* GRE interface */
++	ZEBRA_IF_DUMMY,     /* Dummy interface */
+ };
+ 
+ /* Zebra "slave" interface type */
+@@ -246,6 +247,9 @@
+ #define IS_ZEBRA_IF_GRE(ifp)                                               \
+ 	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_GRE)
+ 
++#define IS_ZEBRA_IF_DUMMY(ifp)                                               \
++	(((struct zebra_if *)(ifp->info))->zif_type == ZEBRA_IF_DUMMY)
++
+ #define IS_ZEBRA_IF_BRIDGE_SLAVE(ifp)					\
+ 	(((struct zebra_if *)(ifp->info))->zif_slave_type                      \
+ 	 == ZEBRA_IF_SLAVE_BRIDGE)
+Index: b/zebra/zebra_nb_state.c
+===================================================================
+--- a/zebra/zebra_nb_state.c	2025-03-07 11:09:47.571424092 +0100
++++ b/zebra/zebra_nb_state.c	2025-03-07 11:09:47.569424090 +0100
+@@ -87,6 +87,9 @@
+ 	case ZEBRA_IF_GRE:
+ 		type = "frr-zebra:zif-gre";
+ 		break;
++	case ZEBRA_IF_DUMMY:
++		type = "frr-zebra:zif-dummy";
++		break;
+ 	}
+ 
+ 	if (!type)
+

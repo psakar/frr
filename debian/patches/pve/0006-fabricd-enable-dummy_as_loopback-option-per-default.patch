@@ -1,0 +1,26 @@
+From d1fecf9795c0b9df3889760e1f08bf93c5c8a933 Mon Sep 17 00:00:00 2001
+From: Gabriel Goller <g.goller@proxmox.com>
+Date: Thu, 6 Mar 2025 13:27:55 +0100
+Subject: [PATCH 6/6] fabricd: enable dummy_as_loopback option per default
+
+This allows dummy interfaces to be treated as loopback interfaces in
+openfabric fabrics.
+
+Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
+---
+ tools/etc/frr/daemons | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+Index: b/tools/etc/frr/daemons
+===================================================================
+--- a/tools/etc/frr/daemons	2025-03-07 11:09:47.835424384 +0100
++++ b/tools/etc/frr/daemons	2025-03-07 11:09:47.833424382 +0100
+@@ -57,7 +57,7 @@
+ pbrd_options="   -A 127.0.0.1"
+ staticd_options="-A 127.0.0.1"
+ bfdd_options="   -A 127.0.0.1"
+-fabricd_options="-A 127.0.0.1"
++fabricd_options="-A 127.0.0.1 --dummy_as_loopback"
+ vrrpd_options="  -A 127.0.0.1"
+ pathd_options="  -A 127.0.0.1"
+ 
