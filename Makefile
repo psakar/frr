@@ -13,10 +13,13 @@ OTHER_DEBS=\
   frr-doc_$(DEB_VERSION)_all.deb \
   frr-pythontools_$(DEB_VERSION)_all.deb \
   frr-snmp_$(DEB_VERSION)_$(DEB_HOST_ARCH).deb \
+  frr-test-tools_$(DEB_VERSION)_$(DEB_HOST_ARCH).deb \
 
 DBG_DEBS=\
   frr-dbgsym_$(DEB_VERSION)_$(DEB_HOST_ARCH).deb \
   frr-snmp-dbgsym_$(DEB_VERSION)_$(DEB_HOST_ARCH).deb \
+  frr-test-tools-dbgsym_$(DEB_VERSION)_$(DEB_HOST_ARCH).deb \
+
 
 DEBS=$(MAIN_DEB) $(OTHER_DEBS) $(DBG_DEBS)
 
