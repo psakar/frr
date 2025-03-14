@@ -1,3 +1,11 @@
+frr (10.2.1-1+pve2) bookworm; urgency=medium
+
+  * fix collision in fabricd for the option values of the recent
+    dummy-as-loopback backport and a pre-existing internal test mode, where
+    enabling one would always enable the other.
+
+ -- Proxmox Support Team <support@proxmox.com>  Fri, 14 Mar 2025 12:11:06 +0100
+
 frr (10.2.1-1+pve1) bookworm; urgency=medium
 
   * update upstream source to 10.2.1
