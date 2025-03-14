@@ -18,8 +18,8 @@ Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
  isisd/isis_circuit.c         |  9 +++++----
  isisd/isis_main.c            | 16 +++++++++++++---
  isisd/isisd.c                | 19 +++++++++++++++++++
- isisd/isisd.h                |  4 ++++
- 6 files changed, 57 insertions(+), 12 deletions(-)
+ isisd/isisd.h                |  6 +++++-
+ 6 files changed, 58 insertions(+), 13 deletions(-)
 
 Index: b/doc/manpages/frr-fabricd.rst
 ===================================================================
@@ -181,15 +181,18 @@ Index: b/isisd/isisd.h
 ===================================================================
 --- a/isisd/isisd.h	2025-03-07 11:09:47.700424235 +0100
 +++ b/isisd/isisd.h	2025-03-07 11:09:47.698424233 +0100
-@@ -74,7 +74,9 @@
+@@ -74,9 +74,11 @@
  	struct list *isis;
  	/* ISIS thread master. */
  	struct event_loop *master;
 +	/* Various global options */
  	uint8_t options;
-+#define ISIS_OPT_DUMMY_AS_LOOPBACK (1 << 0)
++#define F_ISIS_UNIT_TEST	    (1 << 0)
++#define ISIS_OPT_DUMMY_AS_LOOPBACK (1 << 1)
  };
- #define F_ISIS_UNIT_TEST 0x01
+-#define F_ISIS_UNIT_TEST 0x01
+ 
+ #define ISIS_DEFAULT_MAX_AREA_ADDRESSES 3
  
 @@ -269,6 +271,8 @@
  void isis_terminate(void);
