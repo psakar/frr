@@ -1,3 +1,12 @@
+frr (10.2.2-1+pve1) bookworm; urgency=medium
+
+  * update upstream source to 10.2.2
+
+  * fixes a critical bug with BFD sessions sometimes not re-establishing after
+    rebooting a node.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 15 Apr 2025 10:51:18 +0200
+
 frr (10.2.1-1+pve2) bookworm; urgency=medium
 
   * fix collision in fabricd for the option values of the recent
