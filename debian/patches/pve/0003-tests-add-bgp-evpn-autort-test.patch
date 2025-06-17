@@ -1,7 +1,7 @@
 From 641f5b043f8aeb81b66882d6b86d62572e95af1d Mon Sep 17 00:00:00 2001
 From: Alexandre Derumier <aderumier@odiso.com>
 Date: Sat, 21 Nov 2020 01:28:42 +0100
-Subject: [PATCH 3/6] tests: add bgp evpn autort test
+Subject: [PATCH] tests: add bgp evpn autort test
 
 Link: https://github.com/FRRouting/frr/pull/7535
 Signed-off-by: Alexandre Derumier <aderumier@odiso.com>

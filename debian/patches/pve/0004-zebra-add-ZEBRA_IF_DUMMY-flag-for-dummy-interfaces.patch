@@ -1,7 +1,7 @@
 From 7cf60fd0bdaa45311eea886cee6d1f290a4ac2d2 Mon Sep 17 00:00:00 2001
 From: Gabriel Goller <g.goller@proxmox.com>
 Date: Tue, 25 Feb 2025 10:13:34 +0100
-Subject: [PATCH 4/6] zebra: add ZEBRA_IF_DUMMY flag for dummy interfaces
+Subject: [PATCH] zebra: add ZEBRA_IF_DUMMY flag for dummy interfaces
 
 Introduce ZEBRA_IF_DUMMY interface flag to identify Linux dummy interfaces [0].
 These interfaces behave similarly to loopback interfaces and can be

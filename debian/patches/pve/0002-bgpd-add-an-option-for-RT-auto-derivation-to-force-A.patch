@@ -1,7 +1,7 @@
 From dbbe4040299d2a02179cc390d9d7e2aab59833da Mon Sep 17 00:00:00 2001
 From: Alexandre Derumier <aderumier@odiso.com>
 Date: Mon, 22 May 2023 19:31:28 +0200
-Subject: [PATCH 2/6] bgpd : add an option for RT auto-derivation to force AS
+Subject: [PATCH] bgpd : add an option for RT auto-derivation to force AS
 
 Allow to define a custom AS for autort AS:VNI
 

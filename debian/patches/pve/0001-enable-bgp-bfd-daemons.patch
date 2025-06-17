@@ -1,7 +1,7 @@
 From e608bc29e66291f7eafb9a9e17b13cc49ae0b726 Mon Sep 17 00:00:00 2001
 From: Alexandre Derumier <aderumier@odiso.com>
 Date: Wed, 25 Nov 2020 12:41:32 +0100
-Subject: [PATCH 1/6] enable bgp && bfd daemons
+Subject: [PATCH] enable bgp && bfd daemons
 
 Signed-off-by: Alexandre Derumier <aderumier@odiso.com>
 Signed-off-by: Gabriel Goller <g.goller@proxmox.com>

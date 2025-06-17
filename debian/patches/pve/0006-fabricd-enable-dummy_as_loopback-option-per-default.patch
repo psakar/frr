@@ -1,7 +1,7 @@
 From d1fecf9795c0b9df3889760e1f08bf93c5c8a933 Mon Sep 17 00:00:00 2001
 From: Gabriel Goller <g.goller@proxmox.com>
 Date: Thu, 6 Mar 2025 13:27:55 +0100
-Subject: [PATCH 6/6] fabricd: enable dummy_as_loopback option per default
+Subject: [PATCH] fabricd: enable dummy_as_loopback option per default
 
 This allows dummy interfaces to be treated as loopback interfaces in
 openfabric fabrics.

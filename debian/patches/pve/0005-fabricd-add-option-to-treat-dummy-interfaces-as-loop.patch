@@ -1,7 +1,7 @@
 From 99aab947f7b89b31f08ba9ccf755ff60af9005a8 Mon Sep 17 00:00:00 2001
 From: Gabriel Goller <g.goller@proxmox.com>
 Date: Tue, 25 Feb 2025 10:24:58 +0100
-Subject: [PATCH 5/6] fabricd: add option to treat dummy interfaces as loopback
+Subject: [PATCH] fabricd: add option to treat dummy interfaces as loopback
  interfaces
 
 Enable dummy-interfaces to be used as router-id interfaces in openfabric
