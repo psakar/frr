@@ -125,3 +125,12 @@ Description: FRRouting suite - Python tools
  .
  Without this package installed, "reload" (as a systemd or init script
  invocation) will not work for the FRR daemons.
+
+Package: frr-grpc
+Architecture: linux-any
+Depends: frr (= ${binary:Version}),
+         ${misc:Depends},
+	 ${shlibs:Depends}
+Description: FRRouting suite - GRPC interface
+ This provides the GRPC interface to the daemons.
+Build-Profiles: <pkg.frr.grpc>
