@@ -12,11 +12,13 @@ MAIN_DEB=$(PACKAGE)_$(DEB_VERSION)_$(DEB_HOST_ARCH).deb
 OTHER_DEBS=\
   frr-doc_$(DEB_VERSION)_all.deb \
   frr-pythontools_$(DEB_VERSION)_all.deb \
+  frr-rpki-rtrlib_$(DEB_VERSION)_$(DEB_HOST_ARCH).deb \
   frr-snmp_$(DEB_VERSION)_$(DEB_HOST_ARCH).deb \
   frr-test-tools_$(DEB_VERSION)_$(DEB_HOST_ARCH).deb \
 
 DBG_DEBS=\
   frr-dbgsym_$(DEB_VERSION)_$(DEB_HOST_ARCH).deb \
+  frr-rpki-rtrlib-dbgsym_$(DEB_VERSION)_$(DEB_HOST_ARCH).deb \
   frr-snmp-dbgsym_$(DEB_VERSION)_$(DEB_HOST_ARCH).deb \
   frr-test-tools-dbgsym_$(DEB_VERSION)_$(DEB_HOST_ARCH).deb \
 
@@ -47,7 +49,7 @@ $(ORIG_SRC_TAR): $(BUILDDIR)
 deb: $(DEBS)
 $(OTHER_DEBS) $(DBG_DEBS): $(MAIN_DEB)
 $(MAIN_DEB): $(BUILDDIR)
-	cd $(BUILDDIR); dpkg-buildpackage -b -uc -us --build-profiles="pkg.frr.nortrlib,pkg.frr.notesttools"
+	cd $(BUILDDIR); dpkg-buildpackage -b -uc -us
 	lintian $(DEBS)
 
 .PHONY: dsc
@@ -60,7 +62,7 @@ $(DSC): $(BUILDDIR) $(ORIG_SRC_TAR)
 	cd $(BUILDDIR); dpkg-buildpackage -S -uc -us --build-profiles="pkg.frr.nortrlib" -d
 
 sbuild: $(DSC)
-	sbuild --profiles="pkg.frr.nortrlib" $<
+	sbuild $<
 
 .PHONY: upload
 upload: UPLOAD_DIST ?= $(DEB_DISTRIBUTION)
