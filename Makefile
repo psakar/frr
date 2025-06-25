@@ -47,8 +47,7 @@ $(ORIG_SRC_TAR): $(BUILDDIR)
 
 .PHONY: deb
 deb: $(DEBS)
-$(OTHER_DEBS) $(DBG_DEBS): $(MAIN_DEB)
-$(MAIN_DEB): $(BUILDDIR)
+$(OTHER_DEBS) $(DBG_DEBS) $(MAIN_DEB) &: $(BUILDDIR)
 	cd $(BUILDDIR); dpkg-buildpackage -b -uc -us
 	lintian $(DEBS)
 
