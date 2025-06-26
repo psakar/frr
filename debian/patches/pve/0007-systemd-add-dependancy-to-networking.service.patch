@@ -1,0 +1,51 @@
+From 570265b39158cd7f72e69116ddeedd25fd91db6b Mon Sep 17 00:00:00 2001
+From: Gabriel Goller <g.goller@proxmox.com>
+Date: Thu, 26 Jun 2025 13:42:43 +0200
+Subject: [PATCH] systemd: add dependancy to networking.service
+
+Add networking.service to the 'After' dependency directive. Guarantees that
+the frr.service will start after the networking.service is done.
+
+We had some issues with data races between FRR and ifupdown, mostly around the
+dummy interface. At startup, FRR and by extension fabricd is up faster than the
+dummy interface, which means that the interface won't be configured properly.
+This does not happen with 10.3.1 anymore due to this patch [0], which fixes the
+problem in the fabricd daemon.
+
+This is a cleaner solution which will also fix errors appearing in the
+journal.
+
+[0]: https://github.com/FRRouting/frr/pull/17083
+
+Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
+---
+ tools/frr.service.in  | 2 +-
+ tools/frr@.service.in | 2 +-
+ 2 files changed, 2 insertions(+), 2 deletions(-)
+
+Index: b/tools/frr.service.in
+===================================================================
+--- a/tools/frr.service.in	2025-06-26 13:42:43.835424384 +0100
++++ b/tools/frr.service.in	2025-06-26 13:42:43.833424382 +0100
+@@ -2,7 +2,7 @@
+ Description=FRRouting
+ Documentation=https://frrouting.readthedocs.io/en/latest/setup.html
+ Wants=network.target
+-After=network-pre.target systemd-sysctl.service
++After=network-pre.target systemd-sysctl.service networking.service
+ Before=network.target
+ OnFailure=heartbeat-failed@%n
+ 
+Index: b/tools/frr@.service.in
+===================================================================
+--- a/tools/frr@.service.in	2025-06-26 13:42:43.835424384 +0100
++++ b/tools/frr@.service.in	2025-06-26 13:42:43.833424382 +0100
+@@ -2,7 +2,7 @@
+ Description=FRRouting
+ Documentation=https://frrouting.readthedocs.io/en/latest/setup.html
+ Wants=network.target
+-After=network-pre.target systemd-sysctl.service
++After=network-pre.target systemd-sysctl.service networking.service
+ Before=network.target
+ OnFailure=heartbeat-failed@%n
+ 
