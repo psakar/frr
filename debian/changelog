@@ -1,3 +1,10 @@
+frr (10.3.1-1+pve2) trixie; urgency=medium
+
+  * fix starting order of of mgmtd and zebra to ensure the former main
+    management daemon is started first.
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 16 Jul 2025 13:17:42 +0200
+
 frr (10.3.1-1+pve1) trixie; urgency=medium
 
   * update upstream source to 10.3.1
