@@ -1,3 +1,10 @@
+frr (10.3.1-1+pve3) trixie; urgency=medium
+
+  * add dependency on networking.service for frr.service to fix race
+    conditions where frr fails to configure interfaces that are not yet up.
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 29 Jul 2025 14:17:40 +0200
+
 frr (10.3.1-1+pve2) trixie; urgency=medium
 
   * fix starting order of of mgmtd and zebra to ensure the former main
