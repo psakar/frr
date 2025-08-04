@@ -39,6 +39,7 @@ $(BUILDDIR): submodule debian/changelog
 	cp -a $(SRCDIR) $@.tmp
 	rm $@.tmp/debian/changelog $@.tmp/debian/compat
 	sed -i '/frrinit\.sh/d' $@.tmp/debian/rules
+	sed -i 's/dh_installsystemd -r/dh_installsystemd -r --no-enable --no-start/' $@.tmp/debian/rules
 	cp -a debian/* $@.tmp/debian/
 	mv $@.tmp $@
 
