@@ -1,3 +1,10 @@
+frr (10.3.1-1+pve4) trixie; urgency=medium
+
+  * do not enable/start frr systemd service on initial installation or update,
+    this is handled on demand by the Proxmox VE SDN stack.
+
+ -- Proxmox Support Team <support@proxmox.com>  Mon, 04 Aug 2025 14:51:41 +0200
+
 frr (10.3.1-1+pve3) trixie; urgency=medium
 
   * add dependency on networking.service for frr.service to fix race
