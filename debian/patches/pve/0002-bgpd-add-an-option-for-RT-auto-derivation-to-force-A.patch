@@ -11,6 +11,7 @@ as route-target AS:VNI need to be the same on the each peer
 Link: https://github.com/FRRouting/frr/pull/7535
 Signed-off-by: Alexandre Derumier <aderumier@odiso.com>
     [ GG: ported to latest stable 10.2.1 ]
+    [ GG: fixed the "ran out of docstring" bug ]
 Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
 ---
  bgpd/bgp_evpn.c     | 13 +++++++++++--
@@ -20,9 +21,9 @@ Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
 
 Index: b/bgpd/bgp_evpn.c
 ===================================================================
---- a/bgpd/bgp_evpn.c	2025-03-07 11:09:47.315423809 +0100
-+++ b/bgpd/bgp_evpn.c	2025-03-07 11:09:47.312423806 +0100
-@@ -622,7 +622,12 @@
+--- a/bgpd/bgp_evpn.c	2025-09-19 15:38:36.128022733 +0200
++++ b/bgpd/bgp_evpn.c	2025-09-19 15:38:36.126001948 +0200
+@@ -624,7 +624,12 @@
  
  	if (bgp->advertise_autort_rfc8365)
  		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
@@ -36,7 +37,7 @@ Index: b/bgpd/bgp_evpn.c
  
  	ecomadd = ecommunity_new();
  	ecommunity_add_val(ecomadd, &eval, false, false);
-@@ -5490,7 +5495,11 @@
+@@ -5651,7 +5656,11 @@
  	if (bgp->advertise_autort_rfc8365)
  		SET_FLAG(vni, EVPN_AUTORT_VXLAN);
  
@@ -51,9 +52,9 @@ Index: b/bgpd/bgp_evpn.c
  	ecommunity_add_val(ecom_auto, &eval, false, false);
 Index: b/bgpd/bgp_evpn_vty.c
 ===================================================================
---- a/bgpd/bgp_evpn_vty.c	2025-03-07 11:09:47.315423809 +0100
-+++ b/bgpd/bgp_evpn_vty.c	2025-03-07 11:09:47.313423807 +0100
-@@ -3744,32 +3744,51 @@
+--- a/bgpd/bgp_evpn_vty.c	2025-09-19 15:38:36.128022733 +0200
++++ b/bgpd/bgp_evpn_vty.c	2025-09-19 15:39:31.389174565 +0200
+@@ -3744,32 +3744,52 @@
  	return CMD_SUCCESS;
  }
  
@@ -96,7 +97,8 @@ Index: b/bgpd/bgp_evpn_vty.c
         "Auto-derivation of RT\n"
 -       "Auto-derivation of RT using RFC8365\n")
 +       "Auto-derivation of RT using RFC8365\n"
-+       "Auto-derivation AS\n")
++       "Auto-derivation AS\n"
++       "AS number to use\n")
  {
  	struct bgp *bgp = VTY_GET_CONTEXT(bgp);
  
@@ -115,7 +117,7 @@ Index: b/bgpd/bgp_evpn_vty.c
  	return CMD_SUCCESS;
  }
  
-@@ -7286,6 +7305,9 @@
+@@ -7295,6 +7315,9 @@
  	if (bgp->advertise_autort_rfc8365)
  		vty_out(vty, "  autort rfc8365-compatible\n");
  
@@ -125,7 +127,7 @@ Index: b/bgpd/bgp_evpn_vty.c
  	if (bgp->advertise_gw_macip)
  		vty_out(vty, "  advertise-default-gw\n");
  
-@@ -7528,8 +7550,8 @@
+@@ -7537,8 +7560,8 @@
  	install_element(BGP_EVPN_NODE, &evpnrt5_network_cmd);
  	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_all_vni_cmd);
  	install_element(BGP_EVPN_NODE, &no_bgp_evpn_advertise_all_vni_cmd);
@@ -138,9 +140,9 @@ Index: b/bgpd/bgp_evpn_vty.c
  	install_element(BGP_EVPN_NODE, &bgp_evpn_advertise_svi_ip_cmd);
 Index: b/bgpd/bgpd.h
 ===================================================================
---- a/bgpd/bgpd.h	2025-03-07 11:09:47.315423809 +0100
-+++ b/bgpd/bgpd.h	2025-03-07 11:09:47.313423807 +0100
-@@ -745,6 +745,9 @@
+--- a/bgpd/bgpd.h	2025-09-19 15:38:36.128022733 +0200
++++ b/bgpd/bgpd.h	2025-09-19 15:38:36.127010776 +0200
+@@ -757,6 +757,9 @@
  	/* EVPN - use RFC 8365 to auto-derive RT */
  	int advertise_autort_rfc8365;
  
