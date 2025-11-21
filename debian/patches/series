@@ -1,8 +1,6 @@
 pve/0001-enable-bgp-bfd-daemons.patch
 pve/0002-bgpd-add-an-option-for-RT-auto-derivation-to-force-A.patch
 pve/0003-tests-add-bgp-evpn-autort-test.patch
-pve/0004-zebra-add-ZEBRA_IF_DUMMY-flag-for-dummy-interfaces.patch
-pve/0005-fabricd-add-option-to-treat-dummy-interfaces-as-loop.patch
-pve/0006-fabricd-enable-dummy_as_loopback-option-per-default.patch
-pve/0007-tools-fix-daemon-starting-order-for-debian-packages.patch
-pve/0007-systemd-add-dependancy-to-networking.service.patch
+pve/0004-fabricd-enable-dummy_as_loopback-option-per-default.patch
+pve/0005-systemd-add-dependancy-to-networking.service.patch
+pve/0006-tools-fix-daemon-starting-order-for-debian-packages.patch
