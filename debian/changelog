@@ -1,3 +1,9 @@
+frr (10.4.1-1+pve1) trixie; urgency=medium
+
+  * update upstream source to 10.4.1
+
+ -- Proxmox Support Team <support@proxmox.com>  Wed, 26 Nov 2025 17:01:43 +0100
+
 frr (10.3.1-1+pve4) trixie; urgency=medium
 
   * do not enable/start frr systemd service on initial installation or update,
