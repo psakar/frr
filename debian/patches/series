@@ -3,4 +3,3 @@ pve/0002-bgpd-add-an-option-for-RT-auto-derivation-to-force-A.patch
 pve/0003-tests-add-bgp-evpn-autort-test.patch
 pve/0004-fabricd-enable-dummy_as_loopback-option-per-default.patch
 pve/0005-systemd-add-dependancy-to-networking.service.patch
-pve/0006-tools-fix-daemon-starting-order-for-debian-packages.patch
