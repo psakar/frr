@@ -1,0 +1,2374 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Louis Scalbert <louis.scalbert@6wind.com>
+Date: Mon, 10 Nov 2025 10:16:05 +0100
+Subject: [PATCH] topotests: add bgp_evpn_rt2_local_leak
+
+Test with the topology of issue #16161.
+
+Link: https://github.com/FRRouting/frr/issues/16161
+Signed-off-by: Louis Scalbert <louis.scalbert@6wind.com>
+(cherry picked from commit 8796f415d97200d674922f3032225293f65f0a2e)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ .../bgp_evpn_rt2_local_leak/__init__.py       |   0
+ .../bgp_evpn_rt2_local_leak/h1/frr.conf       |   4 +
+ .../bgp_evpn_rt2_local_leak/h2/frr.conf       |   4 +
+ .../bgp_evpn_rt2_local_leak/h3/frr.conf       |   4 +
+ .../bgp_evpn_rt2_local_leak/r1/frr.conf       |  24 ++
+ .../r1/show_bgp_ipv4_unicast.json             | 127 ++++++++
+ .../r1/show_bgp_ipv4_unicast_step2.json       |  86 ++++++
+ .../r1/show_bgp_summary.json                  |  21 ++
+ .../r1/show_ip_route.json                     | 153 ++++++++++
+ .../r1/show_ip_route_step2.json               | 136 +++++++++
+ .../bgp_evpn_rt2_local_leak/r2/frr.conf       |  34 +++
+ .../r2/show_bgp_ipv4_unicast.json             |  68 +++++
+ .../r2/show_bgp_ipv4_unicast_step2.json       |  53 ++++
+ .../r2/show_bgp_summary.json                  |  28 ++
+ .../r2/show_ip_route.json                     | 118 +++++++
+ .../r2/show_ip_route_step2.json               | 118 +++++++
+ .../r2/show_ip_route_vrf_vrf10.json           | 119 ++++++++
+ .../r2/show_ip_route_vrf_vrf10_step2.json     | 119 ++++++++
+ .../bgp_evpn_rt2_local_leak/r3/frr.conf       |  34 +++
+ .../r3/show_bgp_ipv4_unicast.json             |  87 ++++++
+ .../r3/show_bgp_ipv4_unicast_step2.json       |  53 ++++
+ .../r3/show_bgp_summary.json                  |  28 ++
+ .../r3/show_ip_route.json                     | 118 +++++++
+ .../r3/show_ip_route_step2.json               | 101 ++++++
+ .../r3/show_ip_route_vrf_vrf10.json           | 119 ++++++++
+ .../r3/show_ip_route_vrf_vrf10_step2.json     | 102 +++++++
+ .../test_bgp_evpn_rt2_local_leak.py           | 289 ++++++++++++++++++
+ 27 files changed, 2147 insertions(+)
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/__init__.py
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/h1/frr.conf
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/h2/frr.conf
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/h3/frr.conf
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r1/frr.conf
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r1/show_bgp_ipv4_unicast.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r1/show_bgp_ipv4_unicast_step2.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r1/show_bgp_summary.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r1/show_ip_route.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r1/show_ip_route_step2.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r2/frr.conf
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r2/show_bgp_ipv4_unicast.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r2/show_bgp_ipv4_unicast_step2.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r2/show_bgp_summary.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route_step2.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route_vrf_vrf10.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route_vrf_vrf10_step2.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r3/frr.conf
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r3/show_bgp_ipv4_unicast.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r3/show_bgp_ipv4_unicast_step2.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r3/show_bgp_summary.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route_step2.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route_vrf_vrf10.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route_vrf_vrf10_step2.json
+ create mode 100644 tests/topotests/bgp_evpn_rt2_local_leak/test_bgp_evpn_rt2_local_leak.py
+
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/__init__.py b/tests/topotests/bgp_evpn_rt2_local_leak/__init__.py
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/h1/frr.conf b/tests/topotests/bgp_evpn_rt2_local_leak/h1/frr.conf
+new file mode 100644
+index 0000000000..a64e8905f6
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/h1/frr.conf
+@@ -0,0 +1,4 @@
++interface eth-r1
++ ip address 172.16.0.1/24
++
++ip route 0.0.0.0/0 172.16.0.254
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/h2/frr.conf b/tests/topotests/bgp_evpn_rt2_local_leak/h2/frr.conf
+new file mode 100644
+index 0000000000..06da9fc51d
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/h2/frr.conf
+@@ -0,0 +1,4 @@
++interface eth-r2
++ ip address 192.168.0.2/24
++
++ip route 0.0.0.0/0 192.168.0.1
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/h3/frr.conf b/tests/topotests/bgp_evpn_rt2_local_leak/h3/frr.conf
+new file mode 100644
+index 0000000000..b6b76235aa
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/h3/frr.conf
+@@ -0,0 +1,4 @@
++interface eth-r3
++ ip address 192.168.0.3/24
++
++ip route 0.0.0.0/0 192.168.0.1
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r1/frr.conf b/tests/topotests/bgp_evpn_rt2_local_leak/r1/frr.conf
+new file mode 100644
+index 0000000000..09846ca6c7
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r1/frr.conf
+@@ -0,0 +1,24 @@
++interface lo
++ ip address 10.0.0.1/32
++
++interface eth-r2
++ no shutdown
++
++interface eth-r3
++ no shutdown
++
++interface eth-h1
++ ip address 172.16.0.254/24
++
++router bgp 65001
++ no bgp ebgp-requires-policy
++ bgp bestpath compare-routerid
++ neighbor eth-r2 interface remote-as external
++ neighbor eth-r3 interface remote-as external
++
++ address-family ipv4 unicast
++  network 10.0.0.1/32
++  network 172.16.0.0/24
++  neighbor eth-r2 activate
++  neighbor eth-r3 activate
++ exit-address-family
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_bgp_ipv4_unicast.json b/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_bgp_ipv4_unicast.json
+new file mode 100644
+index 0000000000..c2c9641b37
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_bgp_ipv4_unicast.json
+@@ -0,0 +1,127 @@
++{
++  "routes": {
++    "192.168.0.0/24": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "65002",
++        "origin": "incomplete",
++        "nexthops": [
++          {
++            "hostname": "r2",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r2",
++            "hostname": "r2",
++            "scope": "link-local"
++          }
++        ]
++      },
++      {
++        "valid": true,
++        "pathFrom": "external",
++        "path": "65003",
++        "origin": "incomplete",
++        "nexthops": [
++          {
++            "hostname": "r3",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r3",
++            "hostname": "r3",
++            "scope": "link-local"
++          }
++        ]
++      }
++    ],
++    "192.168.0.2/32": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "65002",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r2",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r2",
++            "hostname": "r2",
++            "scope": "link-local"
++          }
++        ]
++      },
++      {
++        "valid": true,
++        "pathFrom": "external",
++        "path": "65003 65002",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r3",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r3",
++            "hostname": "r3",
++            "scope": "link-local"
++          }
++        ]
++      }
++    ],
++    "192.168.0.3/32": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "65003",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r3",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r3",
++            "hostname": "r3",
++            "scope": "link-local"
++          }
++        ]
++      },
++      {
++        "valid": true,
++        "pathFrom": "external",
++        "path": "65002 65003",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r2",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r2",
++            "hostname": "r2",
++            "scope": "link-local"
++          }
++        ]
++      }
++    ]
++  }
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_bgp_ipv4_unicast_step2.json b/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_bgp_ipv4_unicast_step2.json
+new file mode 100644
+index 0000000000..2b8817a651
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_bgp_ipv4_unicast_step2.json
+@@ -0,0 +1,86 @@
++{
++  "routes": {
++    "192.168.0.0/24": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "65002",
++        "origin": "incomplete",
++        "nexthops": [
++          {
++            "hostname": "r2",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r2",
++            "hostname": "r2",
++            "scope": "link-local"
++          }
++        ]
++      },
++      {
++        "valid": true,
++        "pathFrom": "external",
++        "path": "65003",
++        "origin": "incomplete",
++        "nexthops": [
++          {
++            "hostname": "r3",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r3",
++            "hostname": "r3",
++            "scope": "link-local"
++          }
++        ]
++      }
++    ],
++    "192.168.0.3/32": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "65003",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r3",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r3",
++            "hostname": "r3",
++            "scope": "link-local"
++          }
++        ]
++      },
++      {
++        "valid": true,
++        "pathFrom": "external",
++        "path": "65002 65003",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r2",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r2",
++            "hostname": "r2",
++            "scope": "link-local"
++          }
++        ]
++      }
++    ]
++  }
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_bgp_summary.json b/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_bgp_summary.json
+new file mode 100644
+index 0000000000..7bbac0ec51
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_bgp_summary.json
+@@ -0,0 +1,21 @@
++{
++  "ipv4Unicast": {
++    "routerId": "10.0.0.1",
++    "as": 65001,
++    "peers": {
++      "eth-r2": {
++        "hostname": "r2",
++        "remoteAs": 65002,
++        "localAs": 65001,
++        "state": "Established"
++      },
++      "eth-r3": {
++        "hostname": "r3",
++        "remoteAs": 65003,
++        "localAs": 65001,
++        "state": "Established"
++      }
++    },
++    "totalPeers": 2
++  }
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_ip_route.json b/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_ip_route.json
+new file mode 100644
+index 0000000000..de9ec0cd39
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_ip_route.json
+@@ -0,0 +1,153 @@
++{
++  "10.0.0.1/32": [
++    {
++      "protocol": "local",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "lo",
++          "active": true
++        }
++      ]
++    },
++    {
++      "protocol": "connected",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "lo",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "10.0.0.2/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r2",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r3",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "172.16.0.0/24": [
++    {
++      "protocol": "connected",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "eth-h1",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "172.16.0.254/32": [
++    {
++      "protocol": "local",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "table": 254,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "eth-h1",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "192.168.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r2",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "192.168.0.2/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r2",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "192.168.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r3",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ]
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_ip_route_step2.json b/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_ip_route_step2.json
+new file mode 100644
+index 0000000000..b99188197d
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r1/show_ip_route_step2.json
+@@ -0,0 +1,136 @@
++{
++  "10.0.0.1/32": [
++    {
++      "protocol": "local",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "lo",
++          "active": true
++        }
++      ]
++    },
++    {
++      "protocol": "connected",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "lo",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "10.0.0.2/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r2",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r3",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "172.16.0.0/24": [
++    {
++      "protocol": "connected",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "eth-h1",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "172.16.0.254/32": [
++    {
++      "protocol": "local",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "table": 254,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "eth-h1",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "192.168.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r2",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "192.168.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r3",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ]
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r2/frr.conf b/tests/topotests/bgp_evpn_rt2_local_leak/r2/frr.conf
+new file mode 100644
+index 0000000000..046498652c
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r2/frr.conf
+@@ -0,0 +1,34 @@
++interface lo
++ ip address 10.0.0.2/32
++
++interface eth-r1
++ no shutdown
++
++interface eth-r3
++ no shutdown
++
++vrf vrf10
++ vni 10
++
++router bgp 65002
++ no bgp ebgp-requires-policy
++ neighbor eth-r1 interface remote-as external
++ neighbor eth-r3 interface remote-as external
++
++ address-family ipv4 unicast
++  network 10.0.0.2/32
++  neighbor eth-r1 activate
++  no neighbor eth-r3 activate
++  import vrf vrf10
++ exit-address-family
++
++ address-family l2vpn evpn
++  advertise-all-vni
++  neighbor eth-r3 activate
++ exit-address-family
++
++router bgp 65002 vrf vrf10
++ address-family ipv4 unicast
++  redistribute connected
++  import vrf default
++ exit-address-family
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_bgp_ipv4_unicast.json b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_bgp_ipv4_unicast.json
+new file mode 100644
+index 0000000000..c724a34f00
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_bgp_ipv4_unicast.json
+@@ -0,0 +1,68 @@
++{
++  "routes": {
++    "192.168.0.0/24": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "",
++        "origin": "incomplete",
++        "nexthops": [
++          {
++            "hostname": "r2",
++            "used": true
++          }
++        ]
++      }
++    ],
++    "192.168.0.2/32": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r2",
++            "used": true
++          }
++        ]
++      }
++    ],
++    "192.168.0.3/32": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "65003",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r2",
++            "used": true
++          }
++        ]
++      },
++      {
++        "valid": true,
++        "pathFrom": "external",
++        "path": "65001 65003",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r1",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r1",
++            "hostname": "r1",
++            "scope": "link-local"
++          }
++        ]
++      }
++    ]
++  }
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_bgp_ipv4_unicast_step2.json b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_bgp_ipv4_unicast_step2.json
+new file mode 100644
+index 0000000000..2fdd8ae556
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_bgp_ipv4_unicast_step2.json
+@@ -0,0 +1,53 @@
++{
++  "routes": {
++    "192.168.0.0/24": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "",
++        "origin": "incomplete",
++        "nexthops": [
++          {
++            "hostname": "r2",
++            "used": true
++          }
++        ]
++      }
++    ],
++    "192.168.0.3/32": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "65003",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r2",
++            "used": true
++          }
++        ]
++      },
++      {
++        "valid": true,
++        "pathFrom": "external",
++        "path": "65001 65003",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r1",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r1",
++            "hostname": "r1",
++            "scope": "link-local"
++          }
++        ]
++      }
++    ]
++  }
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_bgp_summary.json b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_bgp_summary.json
+new file mode 100644
+index 0000000000..e490762749
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_bgp_summary.json
+@@ -0,0 +1,28 @@
++{
++  "ipv4Unicast": {
++    "routerId": "10.0.0.2",
++    "as": 65002,
++    "peers": {
++      "eth-r1": {
++        "hostname": "r1",
++        "remoteAs": 65001,
++        "localAs": 65002,
++        "state": "Established"
++      }
++    },
++    "totalPeers": 1
++  },
++  "l2VpnEvpn": {
++    "routerId": "10.0.0.2",
++    "as": 65002,
++    "peers": {
++      "eth-r3": {
++        "hostname": "r3",
++        "remoteAs": 65003,
++        "localAs": 65002,
++        "state": "Established"
++      }
++    },
++    "totalPeers": 1
++  }
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route.json b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route.json
+new file mode 100644
+index 0000000000..df87f16cf5
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route.json
+@@ -0,0 +1,118 @@
++{
++  "10.0.0.1/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.2/32": [
++    {
++      "protocol": "local",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "lo",
++          "active": true
++        }
++      ]
++    },
++    {
++      "protocol": "connected",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "lo",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "10.0.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "172.16.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "192.168.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "vrf10",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "192.168.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "br10",
++          "active": true,
++          "afi": "ipv4"
++        }
++      ]
++    }
++  ]
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route_step2.json b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route_step2.json
+new file mode 100644
+index 0000000000..df87f16cf5
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route_step2.json
+@@ -0,0 +1,118 @@
++{
++  "10.0.0.1/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.2/32": [
++    {
++      "protocol": "local",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "lo",
++          "active": true
++        }
++      ]
++    },
++    {
++      "protocol": "connected",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "lo",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "10.0.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "172.16.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "192.168.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "vrf10",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "192.168.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "br10",
++          "active": true,
++          "afi": "ipv4"
++        }
++      ]
++    }
++  ]
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route_vrf_vrf10.json b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route_vrf_vrf10.json
+new file mode 100644
+index 0000000000..df77828570
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route_vrf_vrf10.json
+@@ -0,0 +1,119 @@
++{
++  "10.0.0.1/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.2/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": null,
++      "nexthops": [
++        {
++          "directlyConnected": true,
++          "interfaceName": "unknown"
++        }
++      ]
++    }
++  ],
++  "10.0.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "172.16.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "192.168.0.0/24": [
++    {
++      "protocol": "connected",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "br100",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "192.168.0.1/32": [
++    {
++      "protocol": "local",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "table": 10,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "br100",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "192.168.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "br10",
++          "active": true,
++          "afi": "ipv4"
++        }
++      ]
++    }
++  ]
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route_vrf_vrf10_step2.json b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route_vrf_vrf10_step2.json
+new file mode 100644
+index 0000000000..df77828570
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r2/show_ip_route_vrf_vrf10_step2.json
+@@ -0,0 +1,119 @@
++{
++  "10.0.0.1/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.2/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": null,
++      "nexthops": [
++        {
++          "directlyConnected": true,
++          "interfaceName": "unknown"
++        }
++      ]
++    }
++  ],
++  "10.0.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "172.16.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "192.168.0.0/24": [
++    {
++      "protocol": "connected",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "br100",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "192.168.0.1/32": [
++    {
++      "protocol": "local",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "table": 10,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "br100",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "192.168.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "br10",
++          "active": true,
++          "afi": "ipv4"
++        }
++      ]
++    }
++  ]
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r3/frr.conf b/tests/topotests/bgp_evpn_rt2_local_leak/r3/frr.conf
+new file mode 100644
+index 0000000000..67bad4ae4d
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r3/frr.conf
+@@ -0,0 +1,34 @@
++interface lo
++ ip address 10.0.0.3/32
++
++interface eth-r1
++ no shutdown
++
++interface eth-r2
++ no shutdown
++
++vrf vrf10
++ vni 10
++
++router bgp 65003
++ no bgp ebgp-requires-policy
++ neighbor eth-r1 interface remote-as external
++ neighbor eth-r2 interface remote-as external
++
++ address-family ipv4 unicast
++  network 10.0.0.3/32
++  neighbor eth-r1 activate
++  no neighbor eth-r2 activate
++  import vrf vrf10
++ exit-address-family
++
++ address-family l2vpn evpn
++  advertise-all-vni
++  neighbor eth-r2 activate
++ exit-address-family
++
++router bgp 65003 vrf vrf10
++ address-family ipv4 unicast
++  redistribute connected
++  import vrf default
++ exit-address-family
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_bgp_ipv4_unicast.json b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_bgp_ipv4_unicast.json
+new file mode 100644
+index 0000000000..f73871ff56
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_bgp_ipv4_unicast.json
+@@ -0,0 +1,87 @@
++{
++  "routes": {
++    "192.168.0.0/24": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "",
++        "origin": "incomplete",
++        "nexthops": [
++          {
++            "hostname": "r3",
++            "used": true
++          }
++        ]
++      },
++      {
++        "valid": true,
++        "pathFrom": "external",
++        "path": "65001 65002",
++        "origin": "incomplete",
++        "nexthops": [
++          {
++            "hostname": "r1",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r1",
++            "hostname": "r1",
++            "scope": "link-local"
++          }
++        ]
++      }
++    ],
++    "192.168.0.2/32": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "65002",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r3",
++            "used": true
++          }
++        ]
++      },
++      {
++        "valid": true,
++        "pathFrom": "external",
++        "path": "65001 65002",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r1",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r1",
++            "hostname": "r1",
++            "scope": "link-local"
++          }
++        ]
++      }
++    ],
++    "192.168.0.3/32": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r3",
++            "used": true
++          }
++        ]
++      }
++    ]
++  }
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_bgp_ipv4_unicast_step2.json b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_bgp_ipv4_unicast_step2.json
+new file mode 100644
+index 0000000000..d9ed992ed7
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_bgp_ipv4_unicast_step2.json
+@@ -0,0 +1,53 @@
++{
++  "routes": {
++    "192.168.0.0/24": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "",
++        "origin": "incomplete",
++        "nexthops": [
++          {
++            "hostname": "r3",
++            "used": true
++          }
++        ]
++      },
++      {
++        "valid": true,
++        "pathFrom": "external",
++        "path": "65001 65002",
++        "origin": "incomplete",
++        "nexthops": [
++          {
++            "hostname": "r1",
++            "scope": "link-local",
++            "linkLocalOnly": false,
++            "used": true
++          },
++          {
++            "interface": "eth-r1",
++            "hostname": "r1",
++            "scope": "link-local"
++          }
++        ]
++      }
++    ],
++    "192.168.0.3/32": [
++      {
++        "valid": true,
++        "bestpath": true,
++        "pathFrom": "external",
++        "path": "",
++        "origin": "IGP",
++        "nexthops": [
++          {
++            "hostname": "r3",
++            "used": true
++          }
++        ]
++      }
++    ]
++  }
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_bgp_summary.json b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_bgp_summary.json
+new file mode 100644
+index 0000000000..c4ac6ee683
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_bgp_summary.json
+@@ -0,0 +1,28 @@
++{
++  "ipv4Unicast": {
++    "routerId": "10.0.0.3",
++    "as": 65003,
++    "peers": {
++      "eth-r1": {
++        "hostname": "r1",
++        "remoteAs": 65001,
++        "localAs": 65003,
++        "state": "Established"
++      }
++    },
++    "totalPeers": 1
++  },
++  "l2VpnEvpn": {
++    "routerId": "10.0.0.3",
++    "as": 65003,
++    "peers": {
++      "eth-r2": {
++        "hostname": "r2",
++        "remoteAs": 65002,
++        "localAs": 65003,
++        "state": "Established"
++      }
++    },
++    "totalPeers": 1
++  }
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route.json b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route.json
+new file mode 100644
+index 0000000000..2b672f536f
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route.json
+@@ -0,0 +1,118 @@
++{
++  "10.0.0.1/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.2/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.3/32": [
++    {
++      "protocol": "local",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "lo",
++          "active": true
++        }
++      ]
++    },
++    {
++      "protocol": "connected",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "lo",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "172.16.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "192.168.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "vrf10",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "192.168.0.2/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "br10",
++          "active": true,
++          "afi": "ipv4"
++        }
++      ]
++    }
++  ]
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route_step2.json b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route_step2.json
+new file mode 100644
+index 0000000000..58f05b7698
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route_step2.json
+@@ -0,0 +1,101 @@
++{
++  "10.0.0.1/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.2/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.3/32": [
++    {
++      "protocol": "local",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "lo",
++          "active": true
++        }
++      ]
++    },
++    {
++      "protocol": "connected",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "lo",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "172.16.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "192.168.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "vrf10",
++          "active": true
++        }
++      ]
++    }
++  ]
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route_vrf_vrf10.json b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route_vrf_vrf10.json
+new file mode 100644
+index 0000000000..6f6e6c93af
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route_vrf_vrf10.json
+@@ -0,0 +1,119 @@
++{
++  "10.0.0.1/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.2/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": null,
++      "nexthops": [
++        {
++          "directlyConnected": true,
++          "interfaceName": "unknown"
++        }
++      ]
++    }
++  ],
++  "172.16.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "192.168.0.0/24": [
++    {
++      "protocol": "connected",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "br100",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "192.168.0.1/32": [
++    {
++      "protocol": "local",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "table": 10,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "br100",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "192.168.0.2/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "br10",
++          "active": true,
++          "afi": "ipv4"
++        }
++      ]
++    }
++  ]
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route_vrf_vrf10_step2.json b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route_vrf_vrf10_step2.json
+new file mode 100644
+index 0000000000..89ede2ba87
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/r3/show_ip_route_vrf_vrf10_step2.json
+@@ -0,0 +1,102 @@
++{
++  "10.0.0.1/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.2/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "10.0.0.3/32": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": null,
++      "nexthops": [
++        {
++          "directlyConnected": true,
++          "interfaceName": "unknown"
++        }
++      ]
++    }
++  ],
++  "172.16.0.0/24": [
++    {
++      "protocol": "bgp",
++      "distance": 20,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "interfaceName": "eth-r1",
++          "active": true,
++          "afi": "ipv6"
++        }
++      ]
++    }
++  ],
++  "192.168.0.0/24": [
++    {
++      "protocol": "connected",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "br100",
++          "active": true
++        }
++      ]
++    }
++  ],
++  "192.168.0.1/32": [
++    {
++      "protocol": "local",
++      "distance": 0,
++      "metric": 0,
++      "installed": true,
++      "selected": true,
++      "table": 10,
++      "nexthops": [
++        {
++          "fib": true,
++          "directlyConnected": true,
++          "interfaceName": "br100",
++          "active": true
++        }
++      ]
++    }
++  ]
++}
+diff --git a/tests/topotests/bgp_evpn_rt2_local_leak/test_bgp_evpn_rt2_local_leak.py b/tests/topotests/bgp_evpn_rt2_local_leak/test_bgp_evpn_rt2_local_leak.py
+new file mode 100644
+index 0000000000..aa05160a97
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_rt2_local_leak/test_bgp_evpn_rt2_local_leak.py
+@@ -0,0 +1,289 @@
++#!/usr/bin/env python
++# SPDX-License-Identifier: ISC
++
++
++"""
++Test BGP EVPN local RT-2 leaking
++"""
++
++import os
++import sys
++import re
++import json
++import pytest
++import functools
++
++CWD = os.path.dirname(os.path.realpath(__file__))
++sys.path.append(os.path.join(CWD, "../"))
++
++# pylint: disable=C0413
++from lib import topotest
++from lib.topolog import logger
++from lib.topogen import Topogen, TopoRouter, get_topogen
++from lib.checkping import check_ping
++from lib.common_config import step
++
++
++pytestmark = [pytest.mark.bgpd]
++
++
++def build_topo(tgen):
++    def connect_routers(tgen, left, right):
++        for rname in [left, right]:
++            if rname not in tgen.routers().keys():
++                tgen.add_router(rname)
++
++        switch = tgen.add_switch("s-{}-{}".format(left, right))
++        switch.add_link(tgen.gears[left], nodeif="eth-{}".format(right))
++        switch.add_link(tgen.gears[right], nodeif="eth-{}".format(left))
++
++    connect_routers(tgen, "r1", "r2")
++    connect_routers(tgen, "r1", "r3")
++    connect_routers(tgen, "r2", "r3")
++    connect_routers(tgen, "h1", "r1")
++    connect_routers(tgen, "h2", "r2")
++    connect_routers(tgen, "h3", "r3")
++
++
++def setup_module(mod):
++    tgen = Topogen(build_topo, mod.__name__)
++    tgen.start_topology()
++
++    for hname, host in tgen.routers().items():
++        if hname not in ("h2", "h3"):
++            continue
++        id = hname.replace("h", "")
++        host.cmd(
++            f"""
++ip link set eth-r{id} down
++ip link set eth-r{id} address 2:00:00:00:00:{id}{id}
++ip link set eth-r{id} up
++"""
++        )
++
++    for rname, router in tgen.routers().items():
++        if rname not in ("r2", "r3"):
++            continue
++        id = rname.replace("r", "")
++        router.cmd(
++            f"""
++# L3VNI setup
++ip link add up vrf10 type vrf table 10
++ip link add up br10 type bridge
++ip link set br10 master vrf10
++ip link add up vni10 type vxlan id 10 local 10.0.0.{id} nolearning dstport 4789
++ip link set vni10 master br10
++bridge link set dev vni10 learning off
++
++# L2VNI and IRB setup
++ip link add up br100 type bridge
++ip link set br100 master vrf10
++ip link add up vni100 type vxlan id 100 local 10.0.0.{id} nolearning dstport 4789
++ip link set vni100 master br100
++ip link set eth-h{id} master br100
++bridge link set dev vni100 learning off
++bridge link set dev eth-h{id} learning off
++ip address add 192.168.0.1/24 dev br100
++
++# Mock host setup (to cause type-2 MACIP advertisement)
++bridge fdb add 02:00:00:00:00:{id}{id} dev eth-h{id} master static sticky
++ip neigh add 192.168.0.{id} lladdr 02:00:00:00:00:{id}{id} dev br100
++"""
++        )
++
++    router_list = tgen.routers()
++
++    for _, (rname, router) in enumerate(router_list.items(), 1):
++        d = [
++            (TopoRouter.RD_ZEBRA, None),
++            (TopoRouter.RD_MGMTD, None),
++        ]
++        if rname.startswith("r"):
++            d.append((TopoRouter.RD_BGP, None))
++
++        router.load_frr_config(
++            os.path.join(CWD, "{}/frr.conf".format(rname)),
++            d,
++        )
++
++    tgen.start_router()
++
++
++def teardown_module(mod):
++    tgen = get_topogen()
++    tgen.stop_topology()
++
++
++def check_bgp_convergence(step=None):
++    """
++    JSON output was generated using
++
++    FRRGIT=<git_frr_path>/frr
++
++    vtysh -c 'show bgp summary json' | jq . | egrep -v 'ersion|idType|connections|peerState|pfx|outq|inq|msg|rib|Count|Memory|Uptime|vrf|failedPeers|displayedPeers|dynamicPeers' | awk '/    "bestPath": {/ {c=2; next} c-- > 0 {next} 1' | sed -E 's|"totalPeers": (.+),|"totalPeers": \1|g;s|"Established",|"Established"|g' | jq . >$FRRGIT/tests/topotests/bgp_evpn_rt2_local_leak/$HOSTNAME/show_bgp_summary.json
++
++    vtysh -c "show bgp ipv4 unicast json" | jq '
++    {
++      routes: (
++        .routes
++        | with_entries(select(.key | test("^192\\.168\\.")))
++        | with_entries(
++            .value |= map(
++              (.nexthops // [] | map(with_entries(select(.key | IN("hostname","scope","linkLocalOnly","used","interface"))))) as $nh
++              | { valid, bestpath, pathFrom, path, origin, nexthops: $nh }
++              | with_entries(select(.value != null))
++            )
++          )
++      )
++    }
++    ' >$FRRGIT/tests/topotests/bgp_evpn_rt2_local_leak/$HOSTNAME/show_bgp_ipv4_unicast.json
++
++    vtysh -c "show ip route json" | jq '
++      with_entries(
++        .value |= map(
++          . as $r
++          | ({ protocol, distance, metric, installed }
++             + (if ($r | has("selected")) then {selected} else {} end)
++             + (if ($r.protocol == "local" and ($r.selected? // false)) then {table} else {} end)
++             + {
++                 nexthops: (
++                   .nexthops
++                   | map(
++                       { fib, directlyConnected, interfaceName, active, afi }
++                       | with_entries(select(.value != null))
++                     )
++                 )
++               }
++            )
++        )
++      )
++    ' >$FRRGIT/tests/topotests/bgp_evpn_rt2_local_leak/$HOSTNAME/show_ip_route.json
++
++    [ "$HOSTNAME" != "r1" ] && vtysh -c "show ip route vrf vrf10 json" | jq '
++      with_entries(
++        .value |= map(
++          . as $r
++          | ({ protocol, distance, metric, installed }
++             + (if ($r | has("selected")) then {selected} else {} end)
++             + (if ($r.protocol == "local" and ($r.selected? // false)) then {table} else {} end)
++             + {
++                 nexthops: (
++                   .nexthops
++                   | map(
++                       { fib, directlyConnected, interfaceName, active, afi }
++                       | with_entries(select(.value != null))
++                     )
++                 )
++               }
++            )
++        )
++      )
++    ' >$FRRGIT/tests/topotests/bgp_evpn_rt2_local_leak/$HOSTNAME/show_ip_route_vrf_vrf10.json
++
++    """
++    tgen = get_topogen()
++
++    logger.info("waiting for bgp convergence")
++
++    step_suffix = f"_step{step}" if step else ""
++
++    if not step:
++        logger.info("Check BGP summary")
++        for rname, router in tgen.routers().items():
++            if "h" in rname:
++                continue
++            reffile = os.path.join(CWD, f"{rname}/show_bgp_summary.json")
++            expected = json.loads(open(reffile).read())
++            cmd = "show bgp summary json"
++            test_func = functools.partial(
++                topotest.router_json_cmp, router, cmd, expected
++            )
++            _, res = topotest.run_and_expect(test_func, None, count=60, wait=1)
++            assertmsg = f"BGP did not converge. Error on {rname} {cmd}"
++            assert res is None, assertmsg
++
++    logger.info("Check BGP IPv4 unicast table")
++    for rname, router in tgen.routers().items():
++        if "h" in rname:
++            continue
++        logger.info(f"Check BGP IPv4 unicast table: {rname}")
++        suffix = f"_step{step}" if step else ""
++        reffile = os.path.join(CWD, f"{rname}/show_bgp_ipv4_unicast{suffix}.json")
++        expected = json.loads(open(reffile).read())
++        cmd = f"show bgp ipv4 unicast json"
++        test_func = functools.partial(
++            topotest.router_json_cmp,
++            router,
++            cmd,
++            expected,
++        )
++        _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
++        assertmsg = f"BGP did not converge. Error on {rname} {cmd}"
++        assert res is None, assertmsg
++
++    logger.info("Check IPv4 routing tables")
++    for rname, router in tgen.routers().items():
++        if "h" in rname:
++            continue
++        for vrf in ("default", "vrf10"):
++            if vrf != "default" and rname == "r1":
++                continue
++            suffix_vrf = "" if vrf == "default" else f"_vrf_{vrf}"
++            suffix = f"_step{step}" if step else ""
++            logger.info(f"Check IPv4 routing table: {rname} vrf {vrf}")
++            reffile = os.path.join(CWD, f"{rname}/show_ip_route{suffix_vrf}{suffix}.json")
++            expected = json.loads(open(reffile).read())
++            if vrf == "default":
++                cmd = f"show ip route json"
++            else:
++                cmd = f"show ip route vrf {vrf} json"
++            test_func = functools.partial(
++                topotest.router_json_cmp,
++                router,
++                cmd,
++                expected,
++            )
++            _, res = topotest.run_and_expect(test_func, None, count=30, wait=1)
++            assertmsg = f"IPv4 routing table did not converge. Error on {rname} {cmd}"
++            assert res is None, assertmsg
++
++    if step:
++        return
++
++    check_ping("h1", "192.168.0.2", True, 60, 0.5)
++    check_ping("h1", "192.168.0.3", True, 60, 0.5)
++
++
++def test_bgp_convergence():
++    tgen = get_topogen()
++
++    if tgen.routers_have_failure():
++        pytest.skip(tgen.errors)
++
++    check_bgp_convergence()
++
++
++def test_host2_neighbor_delete():
++    tgen = get_topogen()
++
++    if tgen.routers_have_failure():
++        pytest.skip(tgen.errors)
++
++    tgen.gears["r2"].cmd("ip neigh del 192.168.0.2 lladdr 02:00:00:00:00:22 dev br100")
++    check_bgp_convergence(step=2)
++
++
++def test_host2_neighbor_add():
++    tgen = get_topogen()
++
++    if tgen.routers_have_failure():
++        pytest.skip(tgen.errors)
++
++    tgen.gears["r2"].cmd("ip neigh add 192.168.0.2 lladdr 02:00:00:00:00:22 dev br100")
++
++    check_bgp_convergence()
++
++
++if __name__ == "__main__":
++    args = ["-s"] + sys.argv[1:]
++    sys.exit(pytest.main(args))

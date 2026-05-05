@@ -1,3 +1,7 @@
+upstream/0001-bgpd-fix-EVPN-VRF-auto-RT-deletion-collision.patch
+upstream/0002-bgpd-export-local-rt2-mac-ip-entries-to-unicast.patch
+upstream/0003-bgpd-do-not-add-local-vtep-as-remote.patch
+upstream/0004-topotests-add-bgp_evpn_rt2_local_leak.patch
 pve/0001-enable-bgp-bfd-daemons.patch
 pve/0002-bgpd-add-an-option-for-RT-auto-derivation-to-force-A.patch
 pve/0003-tests-add-bgp-evpn-autort-test.patch

@@ -1,0 +1,137 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Louis Scalbert <louis.scalbert@6wind.com>
+Date: Mon, 10 Nov 2025 16:26:56 +0100
+Subject: [PATCH] bgpd: export local rt2 mac+ip entries to unicast
+
+Local EVPN MAC+IP RT2 entries are currently not exported to the
+unicast RIB of their own VRF, nor to other VRFs. Only remote RT2
+entries may be exported to other VRFs, if configuration allows.
+
+This can lead to sub-optimal routing when VTEPs are also connected
+via IPv4 unicast. In such cases, bgpd may lack /32 host routes for
+locally learned EVPN endpoints.
+
+Example:
+  - r1 peers via IPv4 unicast with r2 and r3 (VTEPs)
+  - r2 and r3 peer via EVPN
+  - 10.0.0.0/24 is in vrf10, with h2 behind r2 and h3 behind r3
+
+         +---+  +-----------+
+        /| r2|--|h2 10.0.0.2|
++---+  / +---+  +-----------+
+| r1| /    |
++---+ \    |
+       \ +---+  +-----------+
+        \| r3|--|h3 10.0.0.3|
+         +---+  +-----------+
+
+r1, r2, and r3 all peer in VRF default. r1 receives three routes within
+10.0.0.0/24:
+ - 10.0.0.0/24 via r3 (or r2, depending on best path)
+ - 10.0.0.2/32 via r3 (received by r3 from r2, then exported to default
+   VRF)
+ - 10.0.0.3/32 via r2
+
+The path from r1 to h2 becomes:
+ - r1 -> r3 -> r2 -> h2,
+ - instead of the optimal r1 -> r2 -> h2.
+
+This is due to missing /32 unicast routes.
+
+Fix by exporting local EVPN RT2 MAC+IP entries to the unicast
+table of their own VRF, and optionally to other VRFs if configured.
+The result is:
+
+  - 10.0.0.0/24 via r3 (or r2, depending on best path)
+  - 10.0.0.2/32 via r2
+  - 10.0.0.3/32 via r3
+
+Signed-off-by: Louis Scalbert <louis.scalbert@6wind.com>
+(cherry picked from commit 74d28f0925d752f3a19502d40c174a7f82139a74)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ bgpd/bgp_evpn.c    | 14 +++++++++++++-
+ bgpd/bgp_mplsvpn.c |  3 +++
+ bgpd/bgp_route.h   |  1 +
+ bgpd/bgp_zebra.c   |  2 ++
+ 4 files changed, 19 insertions(+), 1 deletion(-)
+
+diff --git a/bgpd/bgp_evpn.c b/bgpd/bgp_evpn.c
+index 6810073ea8..5d44d181fc 100644
+--- a/bgpd/bgp_evpn.c
++++ b/bgpd/bgp_evpn.c
+@@ -2442,6 +2442,11 @@ static int update_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
+ 			NULL /* ip */, 1, &global_pi, flags, seq,
+ 			false /* setup_sync */, NULL /* old_is_sync */);
+ 
++		if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE && !mac_only) {
++			SET_FLAG(global_pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
++			bgp_evpn_import_route(bgp, afi, safi, bgp_dest_get_prefix(dest), global_pi);
++		}
++
+ 		/* Schedule for processing and unlock node. */
+ 		bgp_process(bgp, dest, global_pi, afi, safi);
+ 		bgp_dest_unlock_node(dest);
+@@ -2546,8 +2551,13 @@ static int delete_evpn_route(struct bgp *bgp, struct bgpevpn *vpn,
+ 		/* Schedule for processing - withdraws to peers happen from
+ 		 * this table.
+ 		 */
+-		if (pi)
++		if (pi) {
+ 			bgp_process(bgp, global_dest, pi, afi, safi);
++			if (p->prefix.route_type == BGP_EVPN_MAC_IP_ROUTE &&
++			    !is_evpn_prefix_ipaddr_none(p))
++				bgp_evpn_unimport_route(bgp, afi, safi,
++							bgp_dest_get_prefix(global_dest), pi);
++		}
+ 		bgp_dest_unlock_node(global_dest);
+ 	}
+ 
+@@ -3106,6 +3116,8 @@ bgp_create_evpn_bgp_path_info(struct bgp_path_info *parent_pi,
+ 	/* Create new route with its attribute. */
+ 	pi = info_make(parent_pi->type, BGP_ROUTE_IMPORTED, 0, parent_pi->peer,
+ 		       attr_new, dest);
++	if (CHECK_FLAG(parent_pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP))
++		SET_FLAG(pi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
+ 	SET_FLAG(pi->flags, BGP_PATH_VALID);
+ 	bgp_path_info_extra_get(pi);
+ 	if (!pi->extra->vrfleak)
+diff --git a/bgpd/bgp_mplsvpn.c b/bgpd/bgp_mplsvpn.c
+index cbe034703f..ef18ace01a 100644
+--- a/bgpd/bgp_mplsvpn.c
++++ b/bgpd/bgp_mplsvpn.c
+@@ -1411,6 +1411,9 @@ leak_update(struct bgp *to_bgp, struct bgp_dest *bn,
+ 	new = info_make(ZEBRA_ROUTE_BGP, BGP_ROUTE_IMPORTED, 0,
+ 			to_bgp->peer_self, new_attr, bn);
+ 
++	if (CHECK_FLAG(source_bpi->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP))
++		SET_FLAG(new->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP);
++
+ 	bgp_path_info_extra_get(new);
+ 	if (!new->extra->vrfleak)
+ 		new->extra->vrfleak =
+diff --git a/bgpd/bgp_route.h b/bgpd/bgp_route.h
+index 8c26de1b45..235be23d49 100644
+--- a/bgpd/bgp_route.h
++++ b/bgpd/bgp_route.h
+@@ -342,6 +342,7 @@ struct bgp_path_info {
+  * the actual ecmp path.
+  */
+ #define BGP_PATH_MULTIPATH_NEW (1 << 20)
++#define BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP (1 << 21)
+ 
+ 	/* BGP route type.  This can be static, RIP, OSPF, BGP etc.  */
+ 	uint8_t type;
+diff --git a/bgpd/bgp_zebra.c b/bgpd/bgp_zebra.c
+index d1034ff42a..7444ec2c95 100644
+--- a/bgpd/bgp_zebra.c
++++ b/bgpd/bgp_zebra.c
+@@ -2004,6 +2004,8 @@ void bgp_zebra_route_install(struct bgp_dest *dest, struct bgp_path_info *info,
+ 	table = bgp_dest_table(dest);
+ 	if (table && table->afi == AFI_L2VPN && table->safi == SAFI_EVPN)
+ 		is_evpn = true;
++	else if (CHECK_FLAG(info->flags, BGP_PATH_LOCAL_IMPORT_EVPN_RT2_MACIP))
++		return;
+ 
+ 	/*
+ 	 * BGP is installing this route and bgp has been configured

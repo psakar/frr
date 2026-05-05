@@ -1,0 +1,161 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Gabriel Goller <g.goller@proxmox.com>
+Date: Wed, 29 Apr 2026 13:16:35 +0200
+Subject: [PATCH] bgpd: fix EVPN VRF auto RT deletion collision
+
+When an EVPN VRF L3VNI is learned before the BGP configuration is fully
+replayed, bgpd may install the implicit auto-derived L3 route-target
+first.
+
+If the saved configuration also contains that same value as an explicit
+configured import RT, a later configured RT can accidentally remove it.
+
+This surfaced after the commit 800f336b0bfb ("tools: fix daemon starting
+order for debian packages") was introduced, which changed the startup
+order of mgmtd and zebra.
+
+Example failing config:
+
+ router bgp 64991 vrf vrf_owozone
+  address-family l2vpn evpn
+   advertise ipv4 unicast
+   advertise ipv6 unicast
+   route-target import 64991:200
+   route-target import 64992:200
+  exit-address-family
+ exit
+
+After restarting FRR (which causes the zebra/L3VNI notification racing
+ahead of the config replay) we can observe:
+
+ address-family l2vpn evpn
+  advertise ipv4 unicast
+  advertise ipv6 unicast
+  route-target import 64992:200
+ exit-address-family
+
+The first RT is lost because the sequence is:
+
+ 1. Zebra reports the L3VNI.
+ 2. bgpd auto-derives and installs RT 64991:200.
+ 3. Config replay adds explicit RT 64991:200.
+ 4. Config replay adds explicit RT 64992:200.
+ 5. The configure path tries to delete the implicit auto RT again.
+ 6. The delete helper matches only by RT value, so it deletes the
+    configured 64991:200 entry.
+
+This is order-dependent. Reversing the configured RT order avoids the
+issue because the colliding RT is added last.
+
+Fix this in two ways:
+
+ * Only remove the implicit auto RT when transitioning from no
+   configured RTs to configured RTs. Once configured RTs already exist,
+   the implicit auto RT should already have been removed.
+
+ * For L3 RT auto deletion, only delete entries marked BGP_VRF_RT_AUTO.
+   This prevents a user-configured RT with the same value as the
+   auto-derived RT from being removed.
+
+Fixes: 800f336b0bfb ("tools: fix daemon starting order for debian packages")
+Reported-by: Stefan Hanreich <s.hanreich@proxmox.com>
+Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
+(cherry picked from commit f026c0325215f33f1eb33840da85d6a1dadaac95)
+Signed-off-by: Thomas Lamprecht <t.lamprecht@proxmox.com>
+---
+ bgpd/bgp_evpn.c | 33 +++++++++++++++++++++++----------
+ 1 file changed, 23 insertions(+), 10 deletions(-)
+
+diff --git a/bgpd/bgp_evpn.c b/bgpd/bgp_evpn.c
+index 4e5bd96c5b..6810073ea8 100644
+--- a/bgpd/bgp_evpn.c
++++ b/bgpd/bgp_evpn.c
+@@ -5673,8 +5673,8 @@ void bgp_evpn_advertise_type5_routes(struct bgp *bgp_vrf, afi_t afi,
+ 	}
+ }
+ 
+-static void rt_list_remove_node(struct list *rt_list,
+-				struct ecommunity *ecomdel, bool is_l3)
++static void rt_list_remove_node(struct list *rt_list, struct ecommunity *ecomdel, bool is_l3,
++				bool auto_only)
+ {
+ 	struct listnode *node = NULL, *nnode = NULL, *node_to_del = NULL;
+ 	struct vrf_route_target *l3rt = NULL;
+@@ -5682,6 +5682,9 @@ static void rt_list_remove_node(struct list *rt_list,
+ 
+ 	if (is_l3) {
+ 		for (ALL_LIST_ELEMENTS(rt_list, node, nnode, l3rt)) {
++			if (auto_only && !CHECK_FLAG(l3rt->flags, BGP_VRF_RT_AUTO))
++				continue;
++
+ 			if (ecommunity_match(l3rt->ecom, ecomdel)) {
+ 				evpn_vrf_rt_del(l3rt);
+ 				node_to_del = node;
+@@ -5698,7 +5701,6 @@ static void rt_list_remove_node(struct list *rt_list,
+ 		}
+ 	}
+ 
+-
+ 	if (node_to_del)
+ 		list_delete_node(rt_list, node_to_del);
+ }
+@@ -5717,7 +5719,10 @@ void evpn_rt_delete_auto(struct bgp *bgp, vni_t vni, struct list *rtl,
+ 	ecom_auto = ecommunity_new();
+ 	ecommunity_add_val(ecom_auto, &eval, false, false);
+ 
+-	rt_list_remove_node(rtl, ecom_auto, is_l3);
++	/* L3 RTs carry flags; when deleting an auto-derived L3 RT, do not
++	 * remove a user-configured RT with the same value.
++	 */
++	rt_list_remove_node(rtl, ecom_auto, is_l3, is_l3);
+ 
+ 	ecommunity_free(&ecom_auto);
+ }
+@@ -5796,8 +5801,12 @@ void bgp_evpn_configure_import_rt_for_vrf(struct bgp *bgp_vrf,
+ 
+ 	evpn_vrf_rt_routes_unmap(bgp_vrf);
+ 
+-	/* Remove auto generated RT if not configured */
+-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_AUTO_RT_CFGD))
++	/* Remove the implicit auto-generated RT when transitioning to
++	 * configured RTs. If configured RTs already exist, the implicit auto
++	 * RT has already been removed.
++	 */
++	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD) &&
++	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_AUTO_RT_CFGD))
+ 		evpn_auto_rt_import_delete_for_vrf(bgp_vrf);
+ 
+ 	/* Add the newly configured RT to RT list */
+@@ -5834,7 +5843,7 @@ void bgp_evpn_unconfigure_import_rt_for_vrf(struct bgp *bgp_vrf,
+ 	evpn_vrf_rt_routes_unmap(bgp_vrf);
+ 
+ 	/* Remove rt */
+-	rt_list_remove_node(bgp_vrf->vrf_import_rtl, ecomdel, true);
++	rt_list_remove_node(bgp_vrf->vrf_import_rtl, ecomdel, true, false);
+ 
+ 	if (!rt_list_has_cfgd_rt(bgp_vrf->vrf_import_rtl))
+ 		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_IMPORT_RT_CFGD);
+@@ -5868,8 +5877,12 @@ void bgp_evpn_configure_export_rt_for_vrf(struct bgp *bgp_vrf,
+ 
+ 	newrt = evpn_vrf_rt_new(ecomadd);
+ 
+-	/* Remove auto generated RT if not configured */
+-	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_AUTO_RT_CFGD))
++	/* Remove the implicit auto-generated RT when transitioning to
++	 * configured RTs. If configured RTs already exist, the implicit auto
++	 * RT has already been removed.
++	 */
++	if (!CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD) &&
++	    !CHECK_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_AUTO_RT_CFGD))
+ 		evpn_auto_rt_export_delete_for_vrf(bgp_vrf);
+ 
+ 	/* Add the new RT to the RT list */
+@@ -5903,7 +5916,7 @@ void bgp_evpn_unconfigure_export_rt_for_vrf(struct bgp *bgp_vrf,
+ 		return; /* Already un-configured */
+ 
+ 	/* Remove rt */
+-	rt_list_remove_node(bgp_vrf->vrf_export_rtl, ecomdel, true);
++	rt_list_remove_node(bgp_vrf->vrf_export_rtl, ecomdel, true, false);
+ 
+ 	if (!rt_list_has_cfgd_rt(bgp_vrf->vrf_export_rtl))
+ 		UNSET_FLAG(bgp_vrf->vrf_flags, BGP_VRF_EXPORT_RT_CFGD);
