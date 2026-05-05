@@ -1,3 +1,9 @@
+frr (10.6.1-1+pve1) trixie; urgency=medium
+
+  * update upstream source to 10.6.1
+
+ -- Proxmox Support Team <support@proxmox.com>  Tue, 05 May 2026 14:18:12 +0200
+
 frr (10.4.1-1+pve1) trixie; urgency=medium
 
   * update upstream source to 10.4.1
