@@ -1,0 +1,89 @@
+From 3e5d7c3b53175b8ce44bc4e34d217e745a1d5e32 Mon Sep 17 00:00:00 2001
+From: souroy <souroy@nvidia.com>
+Date: Fri, 10 Apr 2026 22:11:51 -0700
+Subject: [PATCH 01/21] bgpd: fix valgrind memory leaks on daemon shutdown
+
+During daemon termination, the default BGP instance leaks due to
+two issues:
+
+First, bgp_cleanup_routes() skips EVPN and ENCAP two-level table
+cleanup for hidden instances, leaving route entries. Add a terminating
+check so these tables are always cleaned during shutdown.
+
+Second, a circular dependency exists between bgp_free() and VNI lock
+release: each L2VNI holds a bgp_lock on the default instance via
+bgpevpn_link_to_l3vni(), but the only code that releases these locks
+(bgp_evpn_cleanup -> free_vni_entry -> bgpevpn_unlink_from_l3vni) lives
+inside bgp_free(), which only runs when the lock count reaches zero.
+Break this cycle by calling bgp_evpn_cleanup() from bgp_delete() during
+termination, before the final bgp_unlock(). This releases VNI-held
+locks so the refcount can reach zero and bgp_free() actually executes.
+
+Signed-off-by: Soumya Roy <souroy@nvidia.com>
+---
+ bgpd/bgp_evpn.c  | 7 ++++++-
+ bgpd/bgp_route.c | 2 +-
+ bgpd/bgpd.c      | 9 +++++++++
+ 3 files changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/bgpd/bgp_evpn.c b/bgpd/bgp_evpn.c
+index 4e5bd96c5b54..5d1122e34554 100644
+--- a/bgpd/bgp_evpn.c
++++ b/bgpd/bgp_evpn.c
+@@ -5370,7 +5370,8 @@ static void evpn_mpattr_encode_type5(struct stream *s, const struct prefix *p,
+  *
+  * NOTE: NO need to pop the VPN routes in two cases
+  *  1) In free_vni_entry
+- *     - Called by bgp_free()->bgp_evpn_cleanup().
++ *     - Called by bgp_free()->bgp_evpn_cleanup() or
++ *       bgp_delete()->bgp_evpn_cleanup() when terminating.
+  *     - Since bgp_delete is called before bgp_free and we pop all the dest
+  *       pertaining to bgp under delete.
+  *  2) evpn_delete_vni() when user configures "no vni" since the withdraw
+@@ -7741,6 +7742,10 @@ void bgp_evpn_cleanup_on_disable(struct bgp *bgp)
+  */
+ void bgp_evpn_cleanup(struct bgp *bgp)
+ {
++	/* Guard against double-call during termination */
++	if (!bgp->vnihash)
++		return;
++
+ 	hash_iterate(bgp->vnihash,
+ 		     (void (*)(struct hash_bucket *, void *))free_vni_entry,
+ 		     bgp);
+diff --git a/bgpd/bgp_route.c b/bgpd/bgp_route.c
+index 351f01ef4077..778b1ce214c8 100644
+--- a/bgpd/bgp_route.c
++++ b/bgpd/bgp_route.c
+@@ -7973,7 +7973,7 @@ void bgp_cleanup_routes(struct bgp *bgp)
+ 		/*
+ 		 * VPN and ENCAP and EVPN tables are two-level (RD is top level)
+ 		 */
+-		if (safi != SAFI_MPLS_VPN && IS_BGP_INSTANCE_HIDDEN(bgp))
++		if (safi != SAFI_MPLS_VPN && IS_BGP_INSTANCE_HIDDEN(bgp) && !bm->terminating)
+ 			continue;
+ 
+ 		for (dest = bgp_table_top(bgp->rib[afi][safi]); dest; dest = bgp_route_next(dest)) {
+diff --git a/bgpd/bgpd.c b/bgpd/bgpd.c
+index 116bef933995..ef8ebea216d6 100644
+--- a/bgpd/bgpd.c
++++ b/bgpd/bgpd.c
+@@ -4418,6 +4418,15 @@ int bgp_delete(struct bgp *bgp)
+ 
+ 	bgp_cleanup_routes(bgp);
+ 
++	if (bm->terminating)
++		/*
++		 * Release EVPN VNI bgp_lock references so the
++		 * subsequent bgp_unlock() can drive refcount to
++		 * zero and trigger bgp_free().
++		 */
++		bgp_evpn_cleanup(bgp);
++	}
++
+ 	for (afi = 0; afi < AFI_MAX; ++afi) {
+ 		if (!bgp->vpn_policy[afi].import_redirect_rtlist)
+ 			continue;
+-- 
+2.47.3
+

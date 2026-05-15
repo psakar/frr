@@ -4,6 +4,7 @@ upstream/0003-bgpd-do-not-add-local-vtep-as-remote.patch
 upstream/0004-topotests-add-bgp_evpn_rt2_local_leak.patch
 upstream/0005-bgpd-fix-BGP_ATTR_NEXT_HOP-flag-handling-in-bgp_attr.patch
 upstream/0006-bgpd-preserve-IPv6-nexthops-when-importing-EVPN-IPv4.patch
+upstream/0007-bgpd-fix-valgrind-memory-leaks-on-daemon-shutdown.patch
 pve/0001-enable-bgp-bfd-daemons.patch
 pve/0002-bgpd-add-an-option-for-RT-auto-derivation-to-force-A.patch
 pve/0003-tests-add-bgp-evpn-autort-test.patch
