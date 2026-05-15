@@ -1,0 +1,107 @@
+From f512fac23368ddc1be4cdab95601410d907a8e92 Mon Sep 17 00:00:00 2001
+From: Gabriel Goller <g.goller@proxmox.com>
+Date: Fri, 15 May 2026 16:04:25 +0200
+Subject: [PATCH 2/2] bgpd: preserve IPv6 nexthops when importing EVPN IPv4
+ routes
+
+When importing an EVPN route into a VRF unicast table,
+install_evpn_route_entry_in_vrf() converted every imported IPv4 route
+into a route with the legacy IPv4 NEXT_HOP attribute set:
+
+    attr.nexthop = attr.mp_nexthop_global_in;
+    SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+
+This is only valid when the imported EVPN nexthop is IPv4. With IPv6
+VTEPs we can get IPv4 prefixes with IPv6 nexthops and the route already
+has the real nexthop encoded in the MP nexthop fields. In that case
+setting BGP_ATTR_NEXT_HOP creates an inconsistent attribute: the route
+has an IPv6 MP nexthop, but is also marked as having a classic IPv4
+NEXT_HOP.
+
+This breaks code that uses BGP_ATTR_NEXTHOP_AFI_IP6() to determine
+the nexthop address family. BGP_ATTR_NEXTHOP_AFI_IP6() sees
+BGP_ATTR_NEXT_HOP and thinks this is a IPv4 route with a IPv4 nexthop
+even though mp_nexthop_len indicates an IPv6 nexthop. The result is that
+VRF import/leak drops the IPv6 nexthop and sends a 0.0.0.0 nexthop to
+zebra.
+
+Fix this by only assigning attr.nexthop and setting BGP_ATTR_NEXT_HOP
+when the imported EVPN route does not have an IPv6 MP nexthop. EVPN IPv4
+routes with IPv6 nexthops are left as MP-nexthop routes.
+
+This is related to the previous BGP_ATTR_NEXT_HOP cleanup (#21166) and
+was probably missed there.
+
+Also make the nexthop-change detection handle this case by comparing the
+MP IPv6 nexthop for IPv4 routes that carry one.
+
+Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
+---
+ bgpd/bgp_evpn.c | 36 ++++++++++++++++++++++--------------
+ 1 file changed, 22 insertions(+), 14 deletions(-)
+
+diff --git a/bgpd/bgp_evpn.c b/bgpd/bgp_evpn.c
+index 0b0eb1d623cd..b1de8948e4d3 100644
+--- a/bgpd/bgp_evpn.c
++++ b/bgpd/bgp_evpn.c
+@@ -3215,11 +3215,11 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
+ 	} else
+ 		return 0;
+ 
+-	/* EVPN routes currently only support a IPv4 next hop which corresponds
+-	 * to the remote VTEP. When importing into a VRF, if it is IPv6 host
+-	 * or prefix route, we have to convert the next hop to an IPv4-mapped
+-	 * address for the rest of the code to flow through. In the case of IPv4,
+-	 * make sure to set the flag for next hop attribute.
++	/* EVPN routes may carry either an IPv4 or IPv6 next hop corresponding
++	 * to the remote VTEP. When importing into a VRF, IPv6 host/prefix routes
++	 * use an IPv6 MP nexthop. For IPv4 routes, set the legacy NEXT_HOP
++	 * attribute only when the imported nexthop is IPv4; IPv6 nexthops are
++	 * preserved as MP nexthops.
+ 	 */
+ 	attr = *parent_pi->attr;
+ 	bre = bgp_attr_get_evpn_overlay(&attr);
+@@ -3245,11 +3245,13 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
+ 			SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+ 		}
+ 	} else {
+-		if (afi == AFI_IP6)
++		if (afi == AFI_IP) {
++			if (!BGP_ATTR_MP_NEXTHOP_LEN_IP6(&attr)) {
++				attr.nexthop = attr.mp_nexthop_global_in;
++				bgp_attr_set(&attr, BGP_ATTR_NEXT_HOP);
++			}
++		} else if (afi == AFI_IP6) {
+ 			evpn_convert_nexthop_to_ipv6(&attr);
+-		else {
+-			attr.nexthop = attr.mp_nexthop_global_in;
+-			SET_FLAG(attr.flag, ATTR_FLAG_BIT(BGP_ATTR_NEXT_HOP));
+ 		}
+ 	}
+ 
+@@ -3287,11 +3289,17 @@ static int install_evpn_route_entry_in_vrf(struct bgp *bgp_vrf,
+ 			bgp_path_info_restore(dest, pi);
+ 
+ 		/* Mark if nexthop has changed. */
+-		if ((afi == AFI_IP
+-		     && !IPV4_ADDR_SAME(&pi->attr->nexthop, &attr_new->nexthop))
+-		    || (afi == AFI_IP6
+-			&& !IPV6_ADDR_SAME(&pi->attr->mp_nexthop_global,
+-					   &attr_new->mp_nexthop_global)))
++		if (afi == AFI_IP) {
++			bool old_v6nh = BGP_ATTR_MP_NEXTHOP_LEN_IP6(pi->attr);
++			bool new_v6nh = BGP_ATTR_MP_NEXTHOP_LEN_IP6(attr_new);
++
++			if (old_v6nh != new_v6nh ||
++			    (old_v6nh && !IPV6_ADDR_SAME(&pi->attr->mp_nexthop_global,
++							 &attr_new->mp_nexthop_global)) ||
++			    (!old_v6nh && !IPV4_ADDR_SAME(&pi->attr->nexthop, &attr_new->nexthop)))
++				SET_FLAG(pi->flags, BGP_PATH_IGP_CHANGED);
++		} else if (afi == AFI_IP6 && !IPV6_ADDR_SAME(&pi->attr->mp_nexthop_global,
++							     &attr_new->mp_nexthop_global))
+ 			SET_FLAG(pi->flags, BGP_PATH_IGP_CHANGED);
+ 
+ 		bgp_path_info_set_flag(dest, pi, BGP_PATH_ATTR_CHANGED);
+-- 
+2.47.3
+
