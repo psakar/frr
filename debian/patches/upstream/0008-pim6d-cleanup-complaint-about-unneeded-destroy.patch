@@ -1,0 +1,77 @@
+From b08277dc7820b3621e4ecf360f75acb8334c3e19 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 1 May 2026 16:41:26 -0400
+Subject: [PATCH 02/21] pim6d: cleanup complaint about unneeded destroy
+
+Make the complaint about a unneeded destroy in nb code go away.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ pimd/pim_nb.c        |  6 ++++++
+ pimd/pim_nb.h        |  1 +
+ pimd/pim_nb_config.c | 20 ++++++++++++++++++++
+ 3 files changed, 27 insertions(+)
+
+diff --git a/pimd/pim_nb.c b/pimd/pim_nb.c
+index 4770536d654f..d76c97623b6a 100644
+--- a/pimd/pim_nb.c
++++ b/pimd/pim_nb.c
+@@ -370,6 +370,12 @@ const struct frr_yang_module_info frr_pim_info = {
+ 			}
+ 		},
+ 		{
++ 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/override-interval",
++ 			.cbs = {
++ 				.modify = lib_interface_pim_override_interval_modify,
++ 			}
++ 		},
++ 		{
+ 			.xpath = "/frr-interface:lib/interface/frr-pim:pim/address-family/bfd",
+ 			.cbs = {
+ 				.create = lib_interface_pim_address_family_bfd_create,
+diff --git a/pimd/pim_nb.h b/pimd/pim_nb.h
+index 287d5ff7cf0c..20e86af769f4 100644
+--- a/pimd/pim_nb.h
++++ b/pimd/pim_nb.h
+@@ -124,6 +124,7 @@ int lib_interface_pim_address_family_nbr_plist_destroy(struct nb_cb_destroy_args
+ int lib_interface_pim_assert_interval_modify(struct nb_cb_modify_args *args);
+ int lib_interface_pim_assert_override_interval_modify(struct nb_cb_modify_args *args);
+ int lib_interface_pim_assert_override_interval_destroy(struct nb_cb_destroy_args *args);
++int lib_interface_pim_override_interval_modify(struct nb_cb_modify_args *args);
+ int lib_interface_pim_address_family_create(struct nb_cb_create_args *args);
+ int lib_interface_pim_address_family_destroy(struct nb_cb_destroy_args *args);
+ int lib_interface_pim_address_family_pim_enable_modify(
+diff --git a/pimd/pim_nb_config.c b/pimd/pim_nb_config.c
+index 46417be87e29..ceeaa0802ad2 100644
+--- a/pimd/pim_nb_config.c
++++ b/pimd/pim_nb_config.c
+@@ -2505,6 +2505,26 @@ int lib_interface_pim_assert_override_interval_destroy(struct nb_cb_destroy_args
+ 	return NB_OK;
+ }
+ 
++int lib_interface_pim_override_interval_modify(struct nb_cb_modify_args *args)
++{
++	struct interface *ifp;
++	struct pim_interface *pim_ifp;
++
++	switch (args->event) {
++	case NB_EV_VALIDATE:
++	case NB_EV_ABORT:
++	case NB_EV_PREPARE:
++		break;
++	case NB_EV_APPLY:
++		ifp = nb_running_get_entry(args->dnode, NULL, true);
++		pim_ifp = ifp->info;
++		pim_ifp->pim_override_interval_msec = yang_dnode_get_uint16(args->dnode, NULL);
++		break;
++	}
++
++	return NB_OK;
++}
++
+ /*
+  * XPath: /frr-interface:lib/interface/frr-pim:pim/address-family/bfd
+  */
+-- 
+2.47.3
+

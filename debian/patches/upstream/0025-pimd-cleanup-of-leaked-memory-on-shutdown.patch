@@ -1,0 +1,41 @@
+From 7fb6badbe9170bddee2ba03058eb50181fed505b Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Sat, 2 May 2026 14:50:20 -0400
+Subject: [PATCH 19/21] pimd: cleanup of leaked memory on shutdown
+
+a) route-map memory was not being cleaned up
+b) Some mld memory was not being cleaned up
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ pimd/pim6_main.c | 1 +
+ pimd/pim6_mld.c  | 1 +
+ 2 files changed, 2 insertions(+)
+
+diff --git a/pimd/pim6_main.c b/pimd/pim6_main.c
+index 1d94f9d27eb6..2cf095f5c439 100644
+--- a/pimd/pim6_main.c
++++ b/pimd/pim6_main.c
+@@ -197,6 +197,7 @@ static void pim6_terminate(void)
+ 
+ 	prefix_list_reset();
+ 	access_list_reset();
++	pim_route_map_terminate();
+ 
+ 	zclient = pim_zebra_zclient_get();
+ 	if (zclient) {
+diff --git a/pimd/pim6_mld.c b/pimd/pim6_mld.c
+index 5e4f18af8aac..ce8fc1cd3ad4 100644
+--- a/pimd/pim6_mld.c
++++ b/pimd/pim6_mld.c
+@@ -2381,6 +2381,7 @@ void gm_ifp_teardown(struct interface *ifp)
+ 
+ 	gm_group_delete(gm_ifp);
+ 
++	gm_gsq_pends_fini(gm_ifp->gsq_pends);
+ 	gm_grp_pends_fini(gm_ifp->grp_pends);
+ 	gm_packet_expires_fini(gm_ifp->expires);
+ 	gm_subscribers_fini(gm_ifp->subscribers);
+-- 
+2.47.3
+

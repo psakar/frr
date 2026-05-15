@@ -1,0 +1,58 @@
+From b235bb1ae2a4ad049d93560ce1e1f72e65313b49 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 1 May 2026 13:54:28 -0400
+Subject: [PATCH 10/21] ripd: Cleanup memory leaks on shutdown
+
+a) access_list memory leaks
+b) snmp memory leaks
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ ripd/rip_main.c |  1 +
+ ripd/rip_snmp.c | 12 ++++++++++++
+ 2 files changed, 13 insertions(+)
+
+diff --git a/ripd/rip_main.c b/ripd/rip_main.c
+index f7b011b747e3..a179919c9779 100644
+--- a/ripd/rip_main.c
++++ b/ripd/rip_main.c
+@@ -94,6 +94,7 @@ static FRR_NORETURN void sigint(void)
+ 	rip_zclient_stop();
+ 
+ 	route_map_finish();
++	access_list_reset();
+ 	prefix_list_reset();
+ 
+ 	keychain_terminate();
+diff --git a/ripd/rip_snmp.c b/ripd/rip_snmp.c
+index 118b08e527e9..8f8edd0247eb 100644
+--- a/ripd/rip_snmp.c
++++ b/ripd/rip_snmp.c
+@@ -562,12 +562,24 @@ static int rip_snmp_init(struct event_loop *mstr)
+ 	return 0;
+ }
+ 
++static int rip_snmp_terminate(void)
++{
++	if (rip_ifaddr_table) {
++		route_table_finish(rip_ifaddr_table);
++		rip_ifaddr_table = NULL;
++	}
++
++	smux_terminate();
++	return 0;
++}
++
+ static int rip_snmp_module_init(void)
+ {
+ 	hook_register(rip_ifaddr_add, rip_snmp_ifaddr_add);
+ 	hook_register(rip_ifaddr_del, rip_snmp_ifaddr_del);
+ 
+ 	hook_register(frr_late_init, rip_snmp_init);
++	hook_register(frr_fini, rip_snmp_terminate);
+ 	return 0;
+ }
+ 
+-- 
+2.47.3
+

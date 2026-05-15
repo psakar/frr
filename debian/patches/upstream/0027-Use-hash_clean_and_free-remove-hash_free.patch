@@ -1,0 +1,480 @@
+From 0716102a0a7f755b33f2bab064fa4167570eb9a6 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Wed, 6 May 2026 10:54:28 -0400
+Subject: [PATCH 21/21] *: Use hash_clean_and_free, remove hash_free
+
+Ran across a single case of a hash bucket not being freed,
+on shutdown.  Let's convert everything to use hash_clean_and_free
+and remove usage of hash_free outside of the .c file.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ bfdd/bfd.c               |  6 +++---
+ bgpd/bgp_clist.c         |  6 +++---
+ bgpd/bgp_evpn.c          |  3 +--
+ bgpd/bgp_updgrp.c        |  8 ++------
+ bgpd/bgpd.c              |  5 +----
+ isisd/fabricd.c          |  2 +-
+ isisd/isis_spf_private.h |  3 +--
+ lib/hash.c               | 34 +++++++++++++++++-----------------
+ lib/hash.h               | 11 -----------
+ lib/routemap.c           | 13 +++++--------
+ mgmtd/mgmt_fe_adapter.c  |  2 +-
+ mgmtd/mgmt_txn.c         |  3 +--
+ nhrpd/nhrp_cache.c       |  4 ++--
+ nhrpd/nhrp_vc.c          |  2 +-
+ pbrd/pbr_nht.c           | 11 ++++-------
+ pimd/pim_igmp.c          |  2 +-
+ pimd/pim_nht.c           |  2 +-
+ zebra/kernel_netlink.c   |  3 +--
+ zebra/zebra_evpn.c       |  6 ++----
+ zebra/zebra_evpn_mh.c    |  6 +++---
+ zebra/zebra_vxlan.c      | 13 +++++--------
+ 21 files changed, 56 insertions(+), 89 deletions(-)
+
+diff --git a/bfdd/bfd.c b/bfdd/bfd.c
+index 003052d843f1..36b2f70c1364 100644
+--- a/bfdd/bfd.c
++++ b/bfdd/bfd.c
+@@ -2214,9 +2214,9 @@ void bfd_shutdown(void)
+ 	assert(sbfd_rflt_hash->count == 0);
+ 
+ 	/* Now free the hashes themselves. */
+-	hash_free(bfd_id_hash);
+-	hash_free(bfd_key_hash);
+-	hash_free(sbfd_rflt_hash);
++	hash_clean_and_free(&bfd_id_hash, NULL);
++	hash_clean_and_free(&bfd_key_hash, NULL);
++	hash_clean_and_free(&sbfd_rflt_hash, NULL);
+ 
+ 	destroy_bfd_perm_vrfs_data();
+ 
+diff --git a/bgpd/bgp_clist.c b/bgpd/bgp_clist.c
+index 9de32e85db5f..62244935f71c 100644
+--- a/bgpd/bgp_clist.c
++++ b/bgpd/bgp_clist.c
+@@ -1456,21 +1456,21 @@ void community_list_terminate(struct community_list_handler *ch)
+ 		community_list_delete(cm, list);
+ 	while ((list = cm->str.head) != NULL)
+ 		community_list_delete(cm, list);
+-	hash_free(cm->hash);
++	hash_clean_and_free(&cm->hash, NULL);
+ 
+ 	cm = &ch->lcommunity_list;
+ 	while ((list = cm->num.head) != NULL)
+ 		community_list_delete(cm, list);
+ 	while ((list = cm->str.head) != NULL)
+ 		community_list_delete(cm, list);
+-	hash_free(cm->hash);
++	hash_clean_and_free(&cm->hash, NULL);
+ 
+ 	cm = &ch->extcommunity_list;
+ 	while ((list = cm->num.head) != NULL)
+ 		community_list_delete(cm, list);
+ 	while ((list = cm->str.head) != NULL)
+ 		community_list_delete(cm, list);
+-	hash_free(cm->hash);
++	hash_clean_and_free(&cm->hash, NULL);
+ 
+ 	XFREE(MTYPE_COMMUNITY_LIST_HANDLER, ch);
+ }
+diff --git a/bgpd/bgp_evpn.c b/bgpd/bgp_evpn.c
+index 4f8ee466bb74..f04242455527 100644
+--- a/bgpd/bgp_evpn.c
++++ b/bgpd/bgp_evpn.c
+@@ -7999,8 +7999,7 @@ static void bgp_evpn_remote_ip_hash_destroy(struct bgpevpn *vpn)
+ 	(void (*)(struct hash_bucket *, void *))bgp_evpn_remote_ip_hash_free,
+ 	vpn);
+ 
+-	hash_free(vpn->remote_ip_hash);
+-	vpn->remote_ip_hash = NULL;
++	hash_clean_and_free(&vpn->remote_ip_hash, NULL);
+ }
+ 
+ /* Add a remote MAC/IP route to hash table */
+diff --git a/bgpd/bgp_updgrp.c b/bgpd/bgp_updgrp.c
+index e523528c86c4..03d4b6fe3148 100644
+--- a/bgpd/bgp_updgrp.c
++++ b/bgpd/bgp_updgrp.c
+@@ -1961,12 +1961,8 @@ void update_bgp_group_free(struct bgp *bgp)
+ {
+ 	int afid;
+ 
+-	AF_FOREACH (afid) {
+-		if (bgp->update_groups[afid]) {
+-			hash_free(bgp->update_groups[afid]);
+-			bgp->update_groups[afid] = NULL;
+-		}
+-	}
++	AF_FOREACH (afid)
++		hash_clean_and_free(&bgp->update_groups[afid], NULL);
+ }
+ 
+ void update_group_show(struct bgp *bgp, afi_t afi, safi_t safi, struct vty *vty,
+diff --git a/bgpd/bgpd.c b/bgpd/bgpd.c
+index e92fe29af871..dfbd8d00dca6 100644
+--- a/bgpd/bgpd.c
++++ b/bgpd/bgpd.c
+@@ -4563,10 +4563,7 @@ void bgp_free(struct bgp *bgp)
+ 	list_delete(&bgp->group);
+ 	list_delete(&bgp->peer);
+ 
+-	if (bgp->connectionhash) {
+-		hash_free(bgp->connectionhash);
+-		bgp->connectionhash = NULL;
+-	}
++	hash_clean_and_free(&bgp->connectionhash, NULL);
+ 
+ 	FOREACH_AFI_SAFI (afi, safi) {
+ 		/* Special handling for 2-level routing tables. */
+diff --git a/isisd/fabricd.c b/isisd/fabricd.c
+index 059ec0d278eb..62624e5789fb 100644
+--- a/isisd/fabricd.c
++++ b/isisd/fabricd.c
+@@ -233,7 +233,7 @@ void fabricd_finish(struct fabricd *f)
+ 	isis_spftree_del(f->spftree);
+ 	neighbor_lists_clear(f);
+ 	skiplist_free(f->neighbors);
+-	hash_free(f->neighbors_neighbors);
++	hash_clean_and_free(&f->neighbors_neighbors, NULL);
+ }
+ 
+ static void fabricd_initial_sync_timeout(struct event *event)
+diff --git a/isisd/isis_spf_private.h b/isisd/isis_spf_private.h
+index fd09346c9d59..1d5ac953842a 100644
+--- a/isisd/isis_spf_private.h
++++ b/isisd/isis_spf_private.h
+@@ -191,8 +191,7 @@ __attribute__((__unused__)) static void isis_vertex_queue_free(struct isis_verte
+ {
+ 	isis_vertex_queue_clear(queue);
+ 
+-	hash_free(queue->hash);
+-	queue->hash = NULL;
++	hash_clean_and_free(&queue->hash, NULL);
+ 
+ 	if (queue->insert_counter) {
+ 		skiplist_free(queue->l.slist);
+diff --git a/lib/hash.c b/lib/hash.c
+index edbfeec4645e..6ecbf03ab3f0 100644
+--- a/lib/hash.c
++++ b/lib/hash.c
+@@ -297,6 +297,23 @@ void hash_clean(struct hash *hash, void (*free_func)(void *))
+ 	hash->stats.empty = hash->size;
+ }
+ 
++static void hash_free(struct hash *hash)
++{
++	frr_with_mutex (&_hashes_mtx) {
++		if (_hashes) {
++			listnode_delete(_hashes, hash);
++			if (_hashes->count == 0) {
++				list_delete(&_hashes);
++			}
++		}
++	}
++
++	XFREE(MTYPE_HASH, hash->name);
++
++	XFREE(MTYPE_HASH_INDEX, hash->index);
++	XFREE(MTYPE_HASH, hash);
++}
++
+ void hash_clean_and_free(struct hash **hash, void (*free_func)(void *))
+ {
+ 	if (!*hash)
+@@ -322,23 +339,6 @@ struct list *hash_to_list(struct hash *hash)
+ 	return list;
+ }
+ 
+-void hash_free(struct hash *hash)
+-{
+-	frr_with_mutex (&_hashes_mtx) {
+-		if (_hashes) {
+-			listnode_delete(_hashes, hash);
+-			if (_hashes->count == 0) {
+-				list_delete(&_hashes);
+-			}
+-		}
+-	}
+-
+-	XFREE(MTYPE_HASH, hash->name);
+-
+-	XFREE(MTYPE_HASH_INDEX, hash->index);
+-	XFREE(MTYPE_HASH, hash);
+-}
+-
+ 
+ /* CLI commands ------------------------------------------------------------ */
+ 
+diff --git a/lib/hash.h b/lib/hash.h
+index f9584ae109fa..bee91bcc7f27 100644
+--- a/lib/hash.h
++++ b/lib/hash.h
+@@ -302,17 +302,6 @@ extern void hash_clean(struct hash *hash, void (*free_func)(void *data));
+  */
+ extern void hash_clean_and_free(struct hash **hash, void (*free_func)(void *data));
+ 
+-/*
+- * Delete a hash table.
+- *
+- * This function assumes the table is empty. Call hash_clean to delete the
+- * hashtable contents if necessary.
+- *
+- * hash
+- *    hash table to delete
+- */
+-extern void hash_free(struct hash *hash);
+-
+ /*
+  * Converts a hash table to an unsorted linked list.
+  * Does not modify the hash table in any way.
+diff --git a/lib/routemap.c b/lib/routemap.c
+index 67600b1f89d8..d7eefd2317c2 100644
+--- a/lib/routemap.c
++++ b/lib/routemap.c
+@@ -2850,7 +2850,7 @@ static void route_map_clear_reference(struct hash_bucket *bucket, void *arg)
+ 	}
+ 	if (!dep->dep_rmap_hash->count) {
+ 		dep = hash_release(dep->this_hash, (void *)dep->dep_name);
+-		hash_free(dep->dep_rmap_hash);
++		hash_clean_and_free(&dep->dep_rmap_hash, NULL);
+ 		XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
+ 		XFREE(MTYPE_ROUTE_MAP_DEP, dep);
+ 	}
+@@ -3002,7 +3002,7 @@ static int route_map_dep_update(struct hash *dephash, const char *dep_name,
+ 
+ 		if (!dep->dep_rmap_hash->count) {
+ 			dep = hash_release(dephash, dname);
+-			hash_free(dep->dep_rmap_hash);
++			hash_clean_and_free(&dep->dep_rmap_hash, NULL);
+ 			XFREE(MTYPE_ROUTE_MAP_NAME, dep->dep_name);
+ 			XFREE(MTYPE_ROUTE_MAP_DEP, dep);
+ 		}
+@@ -3338,13 +3338,10 @@ void route_map_finish(void)
+ 		route_map_delete(map);
+ 	}
+ 
+-	for (i = 1; i < ROUTE_MAP_DEP_MAX; i++) {
+-		hash_free(route_map_dep_hash[i]);
+-		route_map_dep_hash[i] = NULL;
+-	}
++	for (i = 1; i < ROUTE_MAP_DEP_MAX; i++)
++		hash_clean_and_free(&route_map_dep_hash[i], NULL);
+ 
+-	hash_free(route_map_master_hash);
+-	route_map_master_hash = NULL;
++	hash_clean_and_free(&route_map_master_hash, NULL);
+ }
+ 
+ /* Increment the use_count counter while attaching the route map */
+diff --git a/mgmtd/mgmt_fe_adapter.c b/mgmtd/mgmt_fe_adapter.c
+index 891c28b5aa1b..6c43f01cd1c6 100644
+--- a/mgmtd/mgmt_fe_adapter.c
++++ b/mgmtd/mgmt_fe_adapter.c
+@@ -2065,5 +2065,5 @@ void mgmt_fe_adapter_destroy(void)
+ 
+ 	mgmt_fe_free_ns_strings(&mgmt_fe_ns_strings);
+ 
+-	hash_free(mgmt_fe_sessions);
++	hash_clean_and_free(&mgmt_fe_sessions, NULL);
+ }
+diff --git a/mgmtd/mgmt_txn.c b/mgmtd/mgmt_txn.c
+index 1d0756d4a782..554fd38cfc8b 100644
+--- a/mgmtd/mgmt_txn.c
++++ b/mgmtd/mgmt_txn.c
+@@ -863,6 +863,5 @@ void mgmt_txn_destroy(void)
+ 		TXN_DECREF(txn);
+ 	}
+ 
+-	if (txn_id_tab)
+-		hash_free(txn_id_tab);
++	hash_clean_and_free(&txn_id_tab, NULL);
+ }
+diff --git a/nhrpd/nhrp_cache.c b/nhrpd/nhrp_cache.c
+index 13b05da5db58..dd71d3361ac1 100644
+--- a/nhrpd/nhrp_cache.c
++++ b/nhrpd/nhrp_cache.c
+@@ -164,13 +164,13 @@ void nhrp_cache_interface_del(struct interface *ifp)
+ 
+ 	if (nifp->cache_hash) {
+ 		hash_iterate(nifp->cache_hash, do_nhrp_cache_free, NULL);
+-		hash_free(nifp->cache_hash);
++		hash_clean_and_free(&nifp->cache_hash, NULL);
+ 	}
+ 
+ 	if (nifp->cache_config_hash) {
+ 		hash_iterate(nifp->cache_config_hash, do_nhrp_cache_config_free,
+ 			     NULL);
+-		hash_free(nifp->cache_config_hash);
++		hash_clean_and_free(&nifp->cache_config_hash, NULL);
+ 	}
+ }
+ 
+diff --git a/nhrpd/nhrp_vc.c b/nhrpd/nhrp_vc.c
+index 6f3346c95c74..ac6d1398f84e 100644
+--- a/nhrpd/nhrp_vc.c
++++ b/nhrpd/nhrp_vc.c
+@@ -214,5 +214,5 @@ void nhrp_vc_terminate(void)
+ {
+ 	nhrp_vc_reset();
+ 	hash_clean(nhrp_vc_hash, nhrp_vc_free);
+-	hash_free(nhrp_vc_hash);
++	hash_clean_and_free(&nhrp_vc_hash, NULL);
+ }
+diff --git a/pbrd/pbr_nht.c b/pbrd/pbr_nht.c
+index 76fecc3f8866..da452f6040b3 100644
+--- a/pbrd/pbr_nht.c
++++ b/pbrd/pbr_nht.c
+@@ -169,7 +169,7 @@ static bool pbr_nh_hash_equal(const void *arg1, const void *arg2)
+ static void pbr_nhgc_delete(struct pbr_nexthop_group_cache *p)
+ {
+ 	hash_iterate(p->nhh, pbr_nh_delete_iterate, NULL);
+-	hash_free(p->nhh);
++	hash_clean_and_free(&p->nhh, NULL);
+ 	XFREE(MTYPE_PBR_NHG, p);
+ }
+ 
+@@ -1498,19 +1498,16 @@ void pbr_nht_terminate(void)
+ {
+ 	if (pbr_nhg_hash) {
+ 		hash_clean(pbr_nhg_hash, (void (*)(void *))pbr_nhgc_delete);
+-		hash_free(pbr_nhg_hash);
+-		pbr_nhg_hash = NULL;
++		hash_clean_and_free(&pbr_nhg_hash, NULL);
+ 	}
+ 
+ 	if (pbr_nhrc_hash) {
+ 		hash_clean(pbr_nhrc_hash, pbr_nhrc_delete);
+-		hash_free(pbr_nhrc_hash);
+-		pbr_nhrc_hash = NULL;
++		hash_clean_and_free(&pbr_nhrc_hash, NULL);
+ 	}
+ 
+ 	if (pbr_nhg_allocated_id_hash) {
+ 		hash_clean(pbr_nhg_allocated_id_hash, NULL);
+-		hash_free(pbr_nhg_allocated_id_hash);
+-		pbr_nhg_allocated_id_hash = NULL;
++		hash_clean_and_free(&pbr_nhg_allocated_id_hash, NULL);
+ 	}
+ }
+diff --git a/pimd/pim_igmp.c b/pimd/pim_igmp.c
+index a9565e692e30..ba128a7daf47 100644
+--- a/pimd/pim_igmp.c
++++ b/pimd/pim_igmp.c
+@@ -1200,7 +1200,7 @@ void pim_igmp_if_fini(struct pim_interface *pim_ifp)
+ 	assert(!listcount(pim_ifp->gm_group_list));
+ 
+ 	list_delete(&pim_ifp->gm_group_list);
+-	hash_free(pim_ifp->gm_group_hash);
++	hash_clean_and_free(&pim_ifp->gm_group_hash, NULL);
+ 
+ 	list_delete(&pim_ifp->gm_socket_list);
+ }
+diff --git a/pimd/pim_nht.c b/pimd/pim_nht.c
+index 3a1527185f1e..2671fe43288d 100644
+--- a/pimd/pim_nht.c
++++ b/pimd/pim_nht.c
+@@ -652,7 +652,7 @@ static void pim_nht_drop_maybe(struct pim_instance *pim, struct pim_nexthop_cach
+ 
+ 		list_delete(&pnc->rp_list);
+ 
+-		hash_free(pnc->upstream_hash);
++		hash_clean_and_free(&pnc->upstream_hash, NULL);
+ 		hash_release(pim->nht_hash, pnc);
+ 
+ 		if (pnc->urib.nexthop)
+diff --git a/zebra/kernel_netlink.c b/zebra/kernel_netlink.c
+index ea1337d3c143..fec0b017880b 100644
+--- a/zebra/kernel_netlink.c
++++ b/zebra/kernel_netlink.c
+@@ -1863,8 +1863,7 @@ void kernel_router_terminate(void)
+ 
+ 	pthread_mutex_destroy(&nlsock_mutex);
+ 
+-	hash_free(nlsock_hash);
+-	nlsock_hash = NULL;
++	hash_clean_and_free(&nlsock_hash, NULL);
+ }
+ 
+ #endif /* HAVE_NETLINK */
+diff --git a/zebra/zebra_evpn.c b/zebra/zebra_evpn.c
+index 258e818ec5d2..963fde4d262e 100644
+--- a/zebra/zebra_evpn.c
++++ b/zebra/zebra_evpn.c
+@@ -1075,12 +1075,10 @@ int zebra_evpn_del(struct zebra_evpn *zevpn)
+ 	zevpn->svi_if = NULL;
+ 
+ 	/* Free the neighbor hash table. */
+-	hash_free(zevpn->neigh_table);
+-	zevpn->neigh_table = NULL;
++	hash_clean_and_free(&zevpn->neigh_table, NULL);
+ 
+ 	/* Free the MAC hash table. */
+-	hash_free(zevpn->mac_table);
+-	zevpn->mac_table = NULL;
++	hash_clean_and_free(&zevpn->mac_table, NULL);
+ 
+ 	/* Remove references to the zevpn in the MH databases */
+ 	if (zevpn->vxlan_if)
+diff --git a/zebra/zebra_evpn_mh.c b/zebra/zebra_evpn_mh.c
+index de602f529024..0b174d803f34 100644
+--- a/zebra/zebra_evpn_mh.c
++++ b/zebra/zebra_evpn_mh.c
+@@ -3972,9 +3972,9 @@ void zebra_evpn_mh_terminate(void)
+ 
+ 	hash_iterate(zmh_info->evpn_vlan_table,
+ 			zebra_evpn_acc_vl_cleanup_all, NULL);
+-	hash_free(zmh_info->evpn_vlan_table);
+-	hash_free(zmh_info->nhg_table);
+-	hash_free(zmh_info->nh_ip_table);
++	hash_clean_and_free(&zmh_info->evpn_vlan_table, NULL);
++	hash_clean_and_free(&zmh_info->nhg_table, NULL);
++	hash_clean_and_free(&zmh_info->nh_ip_table, NULL);
+ 	bf_free(zmh_info->nh_id_bitmap);
+ 
+ 	XFREE(MTYPE_ZMH_INFO, zrouter.mh_info);
+diff --git a/zebra/zebra_vxlan.c b/zebra/zebra_vxlan.c
+index 26769979e874..ecf1eea0db56 100644
+--- a/zebra/zebra_vxlan.c
++++ b/zebra/zebra_vxlan.c
+@@ -2075,12 +2075,10 @@ static int zl3vni_del(struct zebra_l3vni *zl3vni)
+ 	zl3vni->l2vnis = NULL;
+ 
+ 	/* Free the rmac table */
+-	hash_free(zl3vni->rmac_table);
+-	zl3vni->rmac_table = NULL;
++	hash_clean_and_free(&zl3vni->rmac_table, NULL);
+ 
+ 	/* Free the nh table */
+-	hash_free(zl3vni->nh_table);
+-	zl3vni->nh_table = NULL;
++	hash_clean_and_free(&zl3vni->nh_table, NULL);
+ 
+ 	/* Free the VNI hash entry and allocated memory. */
+ 	tmp_zl3vni = hash_release(zrouter.l3vni_table, zl3vni);
+@@ -6031,11 +6029,10 @@ void zebra_vxlan_close_tables(struct zebra_vrf *zvrf)
+ 	if (!zvrf)
+ 		return;
+ 	hash_iterate(zvrf->evpn_table, zebra_evpn_vxlan_cleanup_all, zvrf);
+-	hash_free(zvrf->evpn_table);
++	hash_clean_and_free(&zvrf->evpn_table, NULL);
+ 	if (zvrf->vxlan_sg_table) {
+ 		zebra_vxlan_cleanup_sg_table(zvrf);
+-		hash_free(zvrf->vxlan_sg_table);
+-		zvrf->vxlan_sg_table = NULL;
++		hash_clean_and_free(&zvrf->vxlan_sg_table, NULL);
+ 	}
+ }
+ 
+@@ -6059,7 +6056,7 @@ void zebra_vxlan_terminate(void)
+ /* free l3vni table */
+ void zebra_vxlan_disable(void)
+ {
+-	hash_free(zrouter.l3vni_table);
++	hash_clean_and_free(&zrouter.l3vni_table, NULL);
+ 	zebra_evpn_mh_terminate();
+ }
+ 
+-- 
+2.47.3
+

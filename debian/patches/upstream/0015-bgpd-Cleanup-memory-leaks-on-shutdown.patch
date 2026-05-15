@@ -1,0 +1,608 @@
+From 1bf2f572adb0908e6a002d99e74ba20e4d3e1248 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 1 May 2026 12:17:06 -0400
+Subject: [PATCH 09/21] bgpd: Cleanup memory leaks on shutdown
+
+a) tx addpath id's not being cleaned up properly, fix.
+b) evpn memory leaks on shutdown, fix.
+c) route_nodes not being properly released on shutdown, fix.
+d) rpki memory leaks on shutdown, fix.
+e) srv6 memory leaks on shutdown, fix.
+f) hidden bgp instances memory leaks on recreate, fix.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ bgpd/bgp_addpath.c   | 32 ++++++++++++++++
+ bgpd/bgp_addpath.h   |  2 +
+ bgpd/bgp_evpn.c      | 44 +++++++++++++++++++++
+ bgpd/bgp_evpn.h      |  1 +
+ bgpd/bgp_labelpool.c | 91 ++++++++++++++++++++++++++++++++++++++++++--
+ bgpd/bgp_labelpool.h |  1 +
+ bgpd/bgp_main.c      | 19 +++++++++
+ bgpd/bgp_route.c     | 30 ++++++++++++++-
+ bgpd/bgp_route.h     |  1 +
+ bgpd/bgp_rpki.c      |  2 +
+ bgpd/bgp_srv6.c      | 10 +++++
+ bgpd/bgp_table.c     | 24 ++++++++++++
+ bgpd/bgp_updgrp.c    | 13 ++++++-
+ bgpd/bgpd.c          | 57 ++++++++++++++++++++++-----
+ 14 files changed, 312 insertions(+), 15 deletions(-)
+
+diff --git a/bgpd/bgp_addpath.c b/bgpd/bgp_addpath.c
+index cb3a33180cbf..1b361e651dd8 100644
+--- a/bgpd/bgp_addpath.c
++++ b/bgpd/bgp_addpath.c
+@@ -84,6 +84,38 @@ void bgp_addpath_init_bgp_data(struct bgp_addpath_bgp_data *d)
+ 	}
+ }
+ 
++/*
++ * Destroy any tx addpath id_allocators still attached to the BGP instance.
++ *
++ * Allocators are normally created by bgp_addpath_populate_type() when the
++ * peer count for an (afi, safi, type) combination transitions from zero to
++ * non-zero, and destroyed by the matching bgp_addpath_flush_type() when the
++ * count drops back to zero.  Some configurations keep that count >= 1 even
++ * after every peer has been deleted (e.g. an L3VNI VRF advertising
++ * "ipv4/ipv6 unicast gateway-ip" keeps the BGP_ADDPATH_ALL count at 1 via
++ * advertise_type5_routes_multipath()), so bgp_addpath_flush_type() never
++ * fires.  Call this from bgp_free() to release those leftover allocators.
++ *
++ * It is safe to skip the per-path id drain here because every bgp_path_info
++ * has already been freed by bgp_path_info_free_with_caller() ->
++ * bgp_addpath_free_info_data() by the time bgp_free() runs.
++ */
++void bgp_addpath_finish_bgp_data(struct bgp_addpath_bgp_data *d)
++{
++	safi_t safi;
++	afi_t afi;
++	int i;
++
++	FOREACH_AFI_SAFI (afi, safi) {
++		for (i = 0; i < BGP_ADDPATH_MAX; i++) {
++			if (d->id_allocators[afi][safi][i]) {
++				idalloc_destroy(d->id_allocators[afi][safi][i]);
++				d->id_allocators[afi][safi][i] = NULL;
++			}
++		}
++	}
++}
++
+ /*
+  * Free up resources associated with BGP route info structures.
+  */
+diff --git a/bgpd/bgp_addpath.h b/bgpd/bgp_addpath.h
+index c136671ea455..c7b1bff23800 100644
+--- a/bgpd/bgp_addpath.h
++++ b/bgpd/bgp_addpath.h
+@@ -25,6 +25,8 @@ struct bgp_paths_limit_capability {
+ 
+ void bgp_addpath_init_bgp_data(struct bgp_addpath_bgp_data *d);
+ 
++void bgp_addpath_finish_bgp_data(struct bgp_addpath_bgp_data *d);
++
+ bool bgp_addpath_is_addpath_used(struct bgp_addpath_bgp_data *d, afi_t afi,
+ 				 safi_t safi);
+ 
+diff --git a/bgpd/bgp_evpn.c b/bgpd/bgp_evpn.c
+index 5d1122e34554..4f8ee466bb74 100644
+--- a/bgpd/bgp_evpn.c
++++ b/bgpd/bgp_evpn.c
+@@ -5420,6 +5420,40 @@ static void free_vni_entry(struct hash_bucket *bucket, struct bgp *bgp)
+ 	bgp_evpn_free(bgp, vpn);
+ }
+ 
++/*
++ * Iterator helper: drain per-VNI route tables (mac_table/ip_table) without
++ * freeing the bgpevpn struct itself.  Used during early cleanup so that the
++ * imported per-VNI bgp_path_info entries (which reference parent path_info
++ * and dest objects in the global EVPN RIB) are reaped before the global
++ * EVPN RIB is finalized by bgp_cleanup_routes().
++ */
++static void drain_vni_routes(struct hash_bucket *bucket, struct bgp *bgp)
++{
++	struct bgpevpn *vpn = (struct bgpevpn *)bucket->data;
++
++	delete_all_vni_routes(bgp, vpn);
++}
++
++/*
++ * Drain the per-VNI route tables for every VNI owned by this bgp instance.
++ *
++ * Per-VNI imported paths (in vpn->mac_table and vpn->ip_table) hold
++ * extra->vrfleak->parent references back to BPI/dest objects in the global
++ * EVPN RIB.  bgp_cleanup_routes() later finalizes those tables via
++ * bgp_table_finish() which forcibly zeroes the dest lock counts and frees the
++ * dest nodes, leaving dangling pointers behind.  Reap the per-VNI paths now
++ * so that their bgp_path_info_extra_free() can safely unlock parent dests
++ * while those parents are still alive; the subsequent bgp_evpn_cleanup() then
++ * walks empty per-VNI tables and is a no-op for routes.
++ */
++void bgp_evpn_cleanup_per_vni_routes(struct bgp *bgp)
++{
++	if (!bgp->vnihash)
++		return;
++
++	hash_iterate(bgp->vnihash, (void (*)(struct hash_bucket *, void *))drain_vni_routes, bgp);
++}
++
+ /*
+  * Derive AUTO import RT for BGP VRF - L3VNI
+  */
+@@ -6104,6 +6138,16 @@ void bgp_evpn_handle_deferred_bestpath_for_vnis(struct bgp *bgp, uint16_t cnt)
+ {
+ 	struct vni_gr_walk ctx;
+ 
++	/*
++	 * GR deferred path selection for SAFI_EVPN runs for any bgp instance
++	 * with peers participating in graceful restart, but vnihash is only
++	 * allocated by bgp_evpn_init() on instances that actually configure
++	 * "address-family l2vpn evpn".  Skip non-EVPN instances cleanly
++	 * instead of crashing in hash_iterate().
++	 */
++	if (!bgp->vnihash)
++		return;
++
+ 	ctx.bgp = bgp;
+ 	ctx.cnt = cnt;
+ 
+diff --git a/bgpd/bgp_evpn.h b/bgpd/bgp_evpn.h
+index 38ec840b7ffd..f5d5b26137cb 100644
+--- a/bgpd/bgp_evpn.h
++++ b/bgpd/bgp_evpn.h
+@@ -179,6 +179,7 @@ extern int bgp_evpn_local_vni_add(struct bgp *bgp, vni_t vni,
+ 				  ifindex_t svi_ifindex);
+ extern void bgp_evpn_flood_control_change(struct bgp *bgp);
+ extern void bgp_evpn_cleanup_on_disable(struct bgp *bgp);
++extern void bgp_evpn_cleanup_per_vni_routes(struct bgp *bgp);
+ extern void bgp_evpn_cleanup(struct bgp *bgp);
+ extern void bgp_evpn_init(struct bgp *bgp);
+ extern int bgp_evpn_get_type5_prefixlen(const struct prefix *pfx);
+diff --git a/bgpd/bgp_labelpool.c b/bgpd/bgp_labelpool.c
+index 52cd676f4876..0fee625d8c5c 100644
+--- a/bgpd/bgp_labelpool.c
++++ b/bgpd/bgp_labelpool.c
+@@ -124,6 +124,14 @@ static wq_item_status lp_cbq_docallback(struct work_queue *wq, void *data)
+ 		return WQ_SUCCESS;
+ 	}
+ 
++	/*
++	 * Drained item: bgp_lp_release_pending_lu_locks() has already
++	 * dropped the dest reference and zeroed labelid as a marker.
++	 * Don't run the callback - it would deref a stale or NULL labelid.
++	 */
++	if (!lcbq->labelid)
++		return WQ_SUCCESS;
++
+ 	if (!bgp) {
+ 		/*
+ 		 * If we can't find the BGP instance, we should still release
+@@ -201,7 +209,13 @@ void bgp_lp_init(struct event_loop *master, struct labelpool *pool)
+ /* check if a label callback was for a BGP LU node, and if so, unlock it */
+ static void check_bgp_lu_cb_unlock(struct lp_lcb *lcb)
+ {
+-	if (lcb->type == LP_TYPE_BGP_LU)
++	/*
++	 * NULL labelid is the marker left by bgp_lp_release_pending_lu_locks()
++	 * for entries whose dest reference has already been dropped early
++	 * (before bgp_delete() force-frees the underlying dests at shutdown).
++	 * Skip those so we don't double-unlock or read freed memory.
++	 */
++	if (lcb->type == LP_TYPE_BGP_LU && lcb->labelid)
+ 		bgp_dest_unlock_node(lcb->labelid);
+ }
+ 
+@@ -212,10 +226,68 @@ static void check_bgp_lu_cb_lock(struct lp_lcb *lcb)
+ 		bgp_dest_lock_node(lcb->labelid);
+ }
+ 
++/*
++ * Release any bgp_dest locks held by pending BGP-LU label requests.
++ *
++ * Pending LU requests live in the labelpool's slow-path FIFO
++ * (lp->requests) and on its callback workqueue (lp->callback_q); each one
++ * bumps the underlying bgp_dest's lock count via check_bgp_lu_cb_lock()
++ * so the dest stays alive until the request is satisfied or cancelled.
++ *
++ * At daemon shutdown bgp_exit() runs bgp_delete() for every bgp instance
++ * before bgp_lp_finish().  bgp_delete() / bgp_free() calls
++ * bgp_table_finish() which calls route_table_finish() which calls
++ * bgp_node_destroy() for every node, force-freeing the dest regardless
++ * of its lock count.  Anything still held by the labelpool then becomes
++ * a dangling pointer; the unlock attempts in bgp_lp_finish() are a
++ * use-after-free, observable as an occasional
++ * assert(node->lock > 0) in route_unlock_node().
++ *
++ * This function must be called BEFORE bgp_delete() so the labelpool
++ * drops its dest references while the dests are still valid.  Each
++ * neutralized entry is marked by zeroing its labelid; both the
++ * subsequent bgp_lp_finish() walk and lp_cbq_docallback() (in case the
++ * workqueue ever does run after this) treat NULL labelid as a no-op.
++ *
++ * The labelpool itself is left fully functional so bgp_delete() and its
++ * callees (e.g. bgp_label_per_nexthop_free() -> bgp_lp_release()) keep
++ * working.  The earlier "just move bgp_lp_finish() up" patch
++ * (PR #15583) failed precisely because it made bgp_delete()-time
++ * label releases dereference an already-freed labelpool.
++ */
++void bgp_lp_release_pending_lu_locks(void)
++{
++	struct lp_fifo *lf;
++	struct work_queue_item *item;
++	struct lp_cbq_item *q;
++
++	if (!lp)
++		return;
++
++	frr_each (lp_fifo, &lp->requests, lf) {
++		if (lf->lcb.type == LP_TYPE_BGP_LU && lf->lcb.labelid) {
++			bgp_dest_unlock_node(lf->lcb.labelid);
++			lf->lcb.labelid = NULL;
++		}
++	}
++
++	if (!lp->callback_q)
++		return;
++
++	STAILQ_FOREACH (item, &lp->callback_q->items, wq) {
++		q = item->data;
++		if (q && q->type == LP_TYPE_BGP_LU && q->labelid) {
++			bgp_dest_unlock_node(q->labelid);
++			q->labelid = NULL;
++		}
++	}
++}
++
+ void bgp_lp_finish(void)
+ {
+ 	struct lp_fifo *lf;
+ 	struct work_queue_item *item, *titem;
++	struct lp_cbq_item *q;
+ 	struct listnode *node;
+ 	struct lp_chunk *chunk;
+ 
+@@ -247,11 +319,22 @@ void bgp_lp_finish(void)
+ 	 * to remove an element from the queue after it has been run, resulting
+ 	 * in a double unlock. Hence we need to iterate over our queues and
+ 	 * lists and manually perform the unlocking (ugh)
++	 *
++	 * NB: callback workqueue items are struct lp_cbq_item, NOT struct
++	 * lp_lcb - the two have different layouts so a cast is wrong.
++	 * Read the type/labelid fields directly off lp_cbq_item.  Entries
++	 * already drained by bgp_lp_release_pending_lu_locks() carry a NULL
++	 * labelid and are skipped.
+ 	 */
+-	STAILQ_FOREACH_SAFE (item, &lp->callback_q->items, wq, titem)
+-		check_bgp_lu_cb_unlock(item->data);
++	if (lp->callback_q) {
++		STAILQ_FOREACH_SAFE (item, &lp->callback_q->items, wq, titem) {
++			q = item->data;
++			if (q && q->type == LP_TYPE_BGP_LU && q->labelid)
++				bgp_dest_unlock_node(q->labelid);
++		}
+ 
+-	work_queue_free_and_null(&lp->callback_q);
++		work_queue_free_and_null(&lp->callback_q);
++	}
+ 
+ 	lp = NULL;
+ }
+diff --git a/bgpd/bgp_labelpool.h b/bgpd/bgp_labelpool.h
+index 809d5c305cca..9a2d86b23e8e 100644
+--- a/bgpd/bgp_labelpool.h
++++ b/bgpd/bgp_labelpool.h
+@@ -34,6 +34,7 @@ struct labelpool {
+ };
+ 
+ extern void bgp_lp_init(struct event_loop *master, struct labelpool *pool);
++extern void bgp_lp_release_pending_lu_locks(void);
+ extern void bgp_lp_finish(void);
+ extern void bgp_lp_get(int type, void *labelid, vrf_id_t vrf_id,
+ 		       int (*cbfunc)(mpls_label_t label, void *labelid, bool allocated));
+diff --git a/bgpd/bgp_main.c b/bgpd/bgp_main.c
+index ff8493e776a6..3f3ea0150800 100644
+--- a/bgpd/bgp_main.c
++++ b/bgpd/bgp_main.c
+@@ -179,6 +179,25 @@ static FRR_NORETURN void bgp_exit(int status)
+ 	bgp_default = bgp_get_default();
+ 	bgp_evpn = bgp_get_evpn();
+ 
++	/*
++	 * Drop any bgp_dest references the labelpool is still holding for
++	 * pending BGP-LU label requests BEFORE bgp_delete() runs.
++	 *
++	 * bgp_delete() -> bgp_free() -> bgp_table_finish() force-frees every
++	 * dest in the instance's tables regardless of lock count; if the
++	 * labelpool's slow-path FIFO or callback workqueue still pin any of
++	 * those dests, the unlock attempts later in bgp_lp_finish() become
++	 * a use-after-free (occasional assert(node->lock > 0) crash in
++	 * route_unlock_node()).
++	 *
++	 * This only releases the dest locks - the labelpool itself stays
++	 * functional so bgp_delete()-time callers (e.g.
++	 * bgp_label_per_nexthop_free() -> bgp_lp_release()) keep working.
++	 * The remainder of the labelpool is torn down by bgp_lp_finish()
++	 * below.
++	 */
++	bgp_lp_release_pending_lu_locks();
++
+ 	/* reverse bgp_master_init */
+ 	for (ALL_LIST_ELEMENTS(bm->bgp, node, nnode, bgp)) {
+ 		if (bgp_default == bgp || bgp_evpn == bgp)
+diff --git a/bgpd/bgp_route.c b/bgpd/bgp_route.c
+index 778b1ce214c8..ddbd24d9aafb 100644
+--- a/bgpd/bgp_route.c
++++ b/bgpd/bgp_route.c
+@@ -7087,11 +7087,39 @@ static void bgp_clear_node_queue_init(struct peer *peer)
+ 	peer->clear_node_queue->spec.data = peer;
+ }
+ 
++bool bgp_clear_node_queue_drain(struct peer *peer)
++{
++	struct work_queue *wq;
++	struct work_queue_item *item;
++	bool need_peer_unlock = false;
++
++	if (!peer || !peer->clear_node_queue)
++		return false;
++
++	wq = peer->clear_node_queue;
++	need_peer_unlock = work_queue_is_scheduled(wq) || !work_queue_empty(wq);
++
++	/*
++	 * During daemon termination we need the clear-route work to run
++	 * synchronously before queue teardown, otherwise we only drop refs.
++	 *
++	 * This is intentionally done this way because we are trying to cleanup
++	 * memory on shutdown and these items need to be handled no matter what.
++	 */
++	if (bm->terminating && wq->spec.workfunc) {
++		STAILQ_FOREACH (item, &wq->items, wq)
++			wq->spec.workfunc(wq, item->data);
++	}
++
++	work_queue_free_and_null(&peer->clear_node_queue);
++	return need_peer_unlock;
++}
++
+ static void bgp_clear_route_table(struct peer *peer, afi_t afi, safi_t safi,
+ 				  struct bgp_table *table)
+ {
+ 	struct bgp_dest *dest;
+-	int force = peer->bgp->process_queue ? 0 : 1;
++	int force = (!peer->bgp->process_queue || bm->terminating) ? 1 : 0;
+ 
+ 	if (!table)
+ 		table = peer->bgp->rib[afi][safi];
+diff --git a/bgpd/bgp_route.h b/bgpd/bgp_route.h
+index 8c26de1b45b7..d93e89e98584 100644
+--- a/bgpd/bgp_route.h
++++ b/bgpd/bgp_route.h
+@@ -786,6 +786,7 @@ extern void bgp_soft_reconfig_table_task_cancel(const struct bgp *bgp,
+ extern bool bgp_soft_reconfig_in(struct peer *peer, afi_t afi, safi_t safi);
+ extern void bgp_clear_route(struct peer *peer, afi_t afi, safi_t safi);
+ extern void bgp_clear_route_all(struct peer *peer);
++extern bool bgp_clear_node_queue_drain(struct peer *peer);
+ /* Clear routes for a batch of peers */
+ void bgp_clear_route_batch(struct bgp_clearing_info *cinfo);
+ 
+diff --git a/bgpd/bgp_rpki.c b/bgpd/bgp_rpki.c
+index 1f4541088334..2a884a071a5d 100644
+--- a/bgpd/bgp_rpki.c
++++ b/bgpd/bgp_rpki.c
+@@ -878,6 +878,8 @@ static int bgp_rpki_fini(void)
+ 		XFREE(MTYPE_BGP_RPKI_CACHE, rpki_vrf);
+ 	}
+ 
++	list_delete(&rpki_vrf_list);
++
+ 	return 0;
+ }
+ 
+diff --git a/bgpd/bgp_srv6.c b/bgpd/bgp_srv6.c
+index 5b3b2e4d90bb..c16c3d57fd9b 100644
+--- a/bgpd/bgp_srv6.c
++++ b/bgpd/bgp_srv6.c
+@@ -262,6 +262,16 @@ void bgp_srv6_unicast_register_route(struct bgp *bgp, afi_t afi, struct bgp_dest
+ 	if (dest->srv6_unicast && sid_same(bgp->srv6_unicast[afi].sid, &dest->srv6_unicast->sid))
+ 		return;
+ 
++	/*
++	 * If a previous SID was installed on this dest (e.g. the operator
++	 * reconfigured the unicast SID without first walking/withdrawing the
++	 * RIB), free the old descriptor before allocating a new one.  Without
++	 * this the previous XCALLOC is leaked across "no sid export ..." +
++	 * re-add sequences that change the SID value.
++	 */
++	if (dest->srv6_unicast)
++		bgp_srv6_unicast_unregister_route(dest);
++
+ 	locator = bgp->srv6_unicast[afi].sid_locator;
+ 	dest->srv6_unicast = XCALLOC(MTYPE_BGP_SRV6_L3SERVICE,
+ 				     sizeof(struct bgp_attr_srv6_l3service));
+diff --git a/bgpd/bgp_table.c b/bgpd/bgp_table.c
+index 17b417895f17..34847609df7b 100644
+--- a/bgpd/bgp_table.c
++++ b/bgpd/bgp_table.c
+@@ -18,6 +18,7 @@
+ #include "bgp_addpath.h"
+ #include "bgp_trace.h"
+ #include "bgp_mpath.h"
++#include "bgp_srv6.h"
+ 
+ void bgp_table_lock(struct bgp_table *rt)
+ {
+@@ -99,6 +100,17 @@ inline struct bgp_dest *bgp_dest_unlock_node(struct bgp_dest *dest)
+ 		if (dest->mpath)
+ 			bgp_path_info_mpath_free(&dest->mpath);
+ 
++		/*
++		 * Release any SRv6 unicast prefix-sid descriptor still
++		 * attached to this dest before the dest itself is freed.
++		 * Normally bgp_cleanup_table() reaps these at instance
++		 * teardown, but a dest can also be freed mid-run when its
++		 * last path is reaped (e.g. peer flap, route withdrawal),
++		 * which bypasses the cleanup walk and leaks the descriptor.
++		 */
++		if (dest->srv6_unicast)
++			bgp_srv6_unicast_unregister_route(dest);
++
+ 		XFREE(MTYPE_BGP_NODE, dest);
+ 		dest = NULL;
+ 		rn->info = NULL;
+@@ -129,6 +141,18 @@ static void bgp_node_destroy(route_table_delegate_t *delegate,
+ 		if (dest->mpath)
+ 			bgp_path_info_mpath_free(&dest->mpath);
+ 
++		/*
++		 * As in bgp_dest_unlock_node_debug(), make sure any
++		 * lingering SRv6 unicast descriptor is released before
++		 * the dest itself goes away.  This path is hit when a
++		 * route_table is force-finished (e.g. via
++		 * bgp_table_finish() during instance teardown) while
++		 * one or more dests still carry their dest->srv6_unicast
++		 * pointer.
++		 */
++		if (dest->srv6_unicast)
++			bgp_srv6_unicast_unregister_route(dest);
++
+ 		XFREE(MTYPE_BGP_NODE, dest);
+ 		node->info = NULL;
+ 	}
+diff --git a/bgpd/bgp_updgrp.c b/bgpd/bgp_updgrp.c
+index f92e19ad69da..e523528c86c4 100644
+--- a/bgpd/bgp_updgrp.c
++++ b/bgpd/bgp_updgrp.c
+@@ -1940,10 +1940,21 @@ void update_bgp_group_init(struct bgp *bgp)
+ {
+ 	int afid;
+ 
+-	AF_FOREACH (afid)
++	/*
++	 * Be idempotent: when a hidden bgp instance is revived (see
++	 * bgp_lookup_by_as_name_type() -> bgp_create() with hidden=true),
++	 * bgp_create() runs again on the same struct bgp.  The connectionhash
++	 * and per-afi import_vrf list are already guarded with explicit NULL
++	 * checks; without the same check here we would re-allocate the per-afi
++	 * update_groups hash tables and leak the previously allocated set.
++	 */
++	AF_FOREACH (afid) {
++		if (bgp->update_groups[afid])
++			continue;
+ 		bgp->update_groups[afid] =
+ 			hash_create(updgrp_hash_key_make, updgrp_hash_cmp,
+ 				    "BGP Update Group Hash");
++	}
+ }
+ 
+ void update_bgp_group_free(struct bgp *bgp)
+diff --git a/bgpd/bgpd.c b/bgpd/bgpd.c
+index ef8ebea216d6..e92fe29af871 100644
+--- a/bgpd/bgpd.c
++++ b/bgpd/bgpd.c
+@@ -2796,6 +2796,7 @@ int peer_delete(struct peer *peer)
+ 	struct bgp_filter *filter;
+ 	struct listnode *pn;
+ 	int accept_peer;
++	bool clear_queue_lock_held = false;
+ 
+ 	assert(peer->connection->status != Deleted);
+ 
+@@ -2873,6 +2874,13 @@ int peer_delete(struct peer *peer)
+ 	bgp_stop(peer->connection);
+ 	UNSET_FLAG(peer->flags, PEER_FLAG_DELETE);
+ 
++	/*
++	 * If shutdown interrupts clear-node workers, drain the queue now and
++	 * account for the deferred bgp_clear_route() peer lock explicitly.
++	 */
++	if (bm->terminating)
++		clear_queue_lock_held = bgp_clear_node_queue_drain(peer);
++
+ 	if (peer->doppelganger) {
+ 		peer->doppelganger->doppelganger = NULL;
+ 		peer->doppelganger = NULL;
+@@ -2946,7 +2954,9 @@ int peer_delete(struct peer *peer)
+ 	XFREE(MTYPE_BGP_PEER_HOST, peer->domainname);
+ 	XFREE(MTYPE_BGP_SOFT_VERSION, peer->soft_version);
+ 
+-	peer_unlock(peer); /* initial reference */
++	if (clear_queue_lock_held)
++		peer_unlock(peer); /* bgp_clear_route, completion callback equivalent */
++	peer_unlock(peer);	   /* initial reference */
+ 
+ 	return 0;
+ }
+@@ -3636,11 +3646,13 @@ static struct bgp *bgp_create(as_t *as, const char *name,
+ 
+ peer_init:
+ 	bgp->peer->cmp = (int (*)(void *, void *))peer_cmp;
+-	bgp->connectionhash = hash_create(connection_hash_key_make, connection_hash_same,
+-					  "BGP Peer Hash");
+-	bgp->connectionhash->max_size = BGP_PEER_MAX_HASH_SIZE;
++	if (!bgp->connectionhash) {
++		bgp->connectionhash = hash_create(connection_hash_key_make, connection_hash_same,
++						  "BGP Peer Hash");
++		bgp->connectionhash->max_size = BGP_PEER_MAX_HASH_SIZE;
++	}
+ 
+-	if (!hidden)
++	if (!bgp->group)
+ 		bgp->group = list_new();
+ 	bgp->group->cmp = (int (*)(void *, void *))peer_group_cmp;
+ 
+@@ -4416,13 +4428,39 @@ int bgp_delete(struct bgp *bgp)
+ 		}
+ 	}
+ 
++	if (bm->bgp_evpn == bgp) {
++		/*
++		 * Reap all paths from per-VNI route tables BEFORE the global
++		 * EVPN RIB is finalized by bgp_cleanup_routes() below.
++		 *
++		 * Per-VNI imported BPIs hold extra->vrfleak->parent references
++		 * back into the global EVPN RIB.  bgp_cleanup_routes() calls
++		 * bgp_table_finish() on the per-RD inner tables which forcibly
++		 * zeroes node->lock and frees the dest objects.  If the per-VNI
++		 * paths are reaped after that, bgp_path_info_extra_free()
++		 * tries to bgp_dest_unlock_node() those already-freed dests,
++		 * tripping the "node->lock > 0" assert.
++		 */
++		bgp_evpn_cleanup_per_vni_routes(bgp);
++	}
++
+ 	bgp_cleanup_routes(bgp);
+ 
+-	if (bm->terminating)
++	if (bm->bgp_evpn == bgp) {
+ 		/*
+-		 * Release EVPN VNI bgp_lock references so the
+-		 * subsequent bgp_unlock() can drive refcount to
+-		 * zero and trigger bgp_free().
++		 * Release EVPN VNI bgp_lock references so the subsequent
++		 * bgp_unlock() can drive refcount to zero and trigger
++		 * bgp_free().
++		 *
++		 * This must run on every teardown of the EVPN-owner instance
++		 * (not only during daemon termination).  Each L2VNI holds a
++		 * bgp_lock on the owner via bgpevpn_link_to_l3vni(); without
++		 * releasing those locks here, "no router bgp" of the EVPN
++		 * owner leaks the instance, its peer_self, and any local
++		 * EVPN paths still held in the per-VNI tables.  The per-VNI
++		 * route tables were already drained above; free_vni_entry()
++		 * here re-runs delete_all_vni_routes() which is a no-op (the
++		 * tables are empty) and then frees the bgpevpn structs.
+ 		 */
+ 		bgp_evpn_cleanup(bgp);
+ 	}
+@@ -4565,6 +4603,7 @@ void bgp_free(struct bgp *bgp)
+ 
+ 	bgp_evpn_cleanup(bgp);
+ 	bgp_pbr_cleanup(bgp);
++	bgp_addpath_finish_bgp_data(&bgp->tx_addpath);
+ 
+ 	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
+ 		enum vpn_policy_direction dir;
+-- 
+2.47.3
+

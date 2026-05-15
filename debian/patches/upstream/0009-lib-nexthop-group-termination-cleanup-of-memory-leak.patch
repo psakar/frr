@@ -1,0 +1,47 @@
+From e543bae815e264ee75bbe9dd7b53a6c9ff1965d5 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 1 May 2026 14:11:23 -0400
+Subject: [PATCH 03/21] lib: nexthop-group termination cleanup of memory leaks
+
+Nexthop groups were leaking memory on shutdown.  Add the
+ability to cleanup memory leaks from a using daemon.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ lib/nexthop_group.c | 10 ++++++++++
+ lib/nexthop_group.h |  1 +
+ 2 files changed, 11 insertions(+)
+
+diff --git a/lib/nexthop_group.c b/lib/nexthop_group.c
+index 7ee12079aaa6..5c6a02ae1bcc 100644
+--- a/lib/nexthop_group.c
++++ b/lib/nexthop_group.c
+@@ -1397,3 +1397,13 @@ void nexthop_group_init(void (*new)(const char *name),
+ 	if (delete)
+ 		nhg_hooks.delete = delete;
+ }
++
++void nexthop_group_terminate(void)
++{
++	struct nexthop_group_cmd *nhgc;
++
++	while ((nhgc = RB_ROOT(nhgc_entry_head, &nhgc_entries)))
++		nhgc_delete(nhgc);
++
++	memset(&nhg_hooks, 0, sizeof(nhg_hooks));
++}
+diff --git a/lib/nexthop_group.h b/lib/nexthop_group.h
+index e12e341be88d..f96e5780063f 100644
+--- a/lib/nexthop_group.h
++++ b/lib/nexthop_group.h
+@@ -120,6 +120,7 @@ void nexthop_group_init(
+ 	void (*del_nexthop)(const struct nexthop_group_cmd *nhgc,
+ 			    const struct nexthop *nhop),
+ 	void (*destroy)(const char *name));
++void nexthop_group_terminate(void);
+ 
+ void nexthop_group_enable_vrf(struct vrf *vrf);
+ void nexthop_group_disable_vrf(struct vrf *vrf);
+-- 
+2.47.3
+

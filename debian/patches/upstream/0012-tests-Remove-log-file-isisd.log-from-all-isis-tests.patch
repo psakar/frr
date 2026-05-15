@@ -1,0 +1,883 @@
+From 08f033dc1813d8ab237c8716d1520052fa23438a Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 1 May 2026 12:52:10 -0400
+Subject: [PATCH 06/21] tests: Remove `log file isisd.log` from all isis tests
+
+This is not necessary, remove.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ tests/topotests/all_protocol_startup/r1/isisd.conf     | 1 -
+ tests/topotests/isis_lfa_topo1/rt1/isisd.conf          | 1 -
+ tests/topotests/isis_lfa_topo1/rt2/isisd.conf          | 1 -
+ tests/topotests/isis_lfa_topo1/rt3/isisd.conf          | 1 -
+ tests/topotests/isis_lfa_topo1/rt4/isisd.conf          | 1 -
+ tests/topotests/isis_lfa_topo1/rt5/isisd.conf          | 1 -
+ tests/topotests/isis_lfa_topo1/rt6/isisd.conf          | 1 -
+ tests/topotests/isis_lfa_topo1/rt7/isisd.conf          | 1 -
+ tests/topotests/isis_lsp_bits_topo1/rt1/isisd.conf     | 1 -
+ tests/topotests/isis_lsp_bits_topo1/rt2/isisd.conf     | 1 -
+ tests/topotests/isis_lsp_bits_topo1/rt3/isisd.conf     | 1 -
+ tests/topotests/isis_lsp_bits_topo1/rt4/isisd.conf     | 1 -
+ tests/topotests/isis_lsp_bits_topo1/rt5/isisd.conf     | 1 -
+ tests/topotests/isis_lsp_bits_topo1/rt6/isisd.conf     | 1 -
+ tests/topotests/isis_rlfa_topo1/rt1/isisd.conf         | 1 -
+ tests/topotests/isis_rlfa_topo1/rt2/isisd.conf         | 1 -
+ tests/topotests/isis_rlfa_topo1/rt3/isisd.conf         | 1 -
+ tests/topotests/isis_rlfa_topo1/rt4/isisd.conf         | 1 -
+ tests/topotests/isis_rlfa_topo1/rt5/isisd.conf         | 1 -
+ tests/topotests/isis_rlfa_topo1/rt6/isisd.conf         | 1 -
+ tests/topotests/isis_rlfa_topo1/rt7/isisd.conf         | 1 -
+ tests/topotests/isis_rlfa_topo1/rt8/isisd.conf         | 1 -
+ tests/topotests/isis_snmp/r1/isisd.conf                | 1 -
+ tests/topotests/isis_snmp/r2/isisd.conf                | 1 -
+ tests/topotests/isis_snmp/r3/isisd.conf                | 1 -
+ tests/topotests/isis_snmp/r4/isisd.conf                | 1 -
+ tests/topotests/isis_snmp/r5/isisd.conf                | 1 -
+ tests/topotests/isis_sr_flex_algo_topo1/rt1/isisd.conf | 1 -
+ tests/topotests/isis_sr_flex_algo_topo1/rt2/isisd.conf | 1 -
+ tests/topotests/isis_sr_flex_algo_topo1/rt3/isisd.conf | 1 -
+ tests/topotests/isis_sr_flex_algo_topo2/rt0/isisd.conf | 1 -
+ tests/topotests/isis_sr_flex_algo_topo2/rt1/isisd.conf | 1 -
+ tests/topotests/isis_sr_flex_algo_topo2/rt2/isisd.conf | 1 -
+ tests/topotests/isis_sr_flex_algo_topo2/rt3/isisd.conf | 1 -
+ tests/topotests/isis_sr_flex_algo_topo2/rt4/isisd.conf | 1 -
+ tests/topotests/isis_sr_flex_algo_topo2/rt5/isisd.conf | 1 -
+ tests/topotests/isis_sr_flex_algo_topo2/rt6/isisd.conf | 1 -
+ tests/topotests/isis_sr_flex_algo_topo2/rt7/isisd.conf | 1 -
+ tests/topotests/isis_sr_flex_algo_topo2/rt8/isisd.conf | 1 -
+ tests/topotests/isis_sr_flex_algo_topo2/rt9/isisd.conf | 1 -
+ tests/topotests/isis_sr_te_topo1/rt1/isisd.conf        | 1 -
+ tests/topotests/isis_sr_te_topo1/rt2/isisd.conf        | 1 -
+ tests/topotests/isis_sr_te_topo1/rt3/isisd.conf        | 1 -
+ tests/topotests/isis_sr_te_topo1/rt4/isisd.conf        | 1 -
+ tests/topotests/isis_sr_te_topo1/rt5/isisd.conf        | 1 -
+ tests/topotests/isis_sr_te_topo1/rt6/isisd.conf        | 1 -
+ tests/topotests/isis_sr_topo1/rt1/isisd.conf           | 1 -
+ tests/topotests/isis_sr_topo1/rt2/isisd.conf           | 1 -
+ tests/topotests/isis_sr_topo1/rt3/isisd.conf           | 1 -
+ tests/topotests/isis_sr_topo1/rt4/isisd.conf           | 1 -
+ tests/topotests/isis_sr_topo1/rt5/isisd.conf           | 1 -
+ tests/topotests/isis_sr_topo1/rt6/isisd.conf           | 1 -
+ tests/topotests/isis_srv6_topo1/rt1/isisd.conf         | 1 -
+ tests/topotests/isis_srv6_topo1/rt2/isisd.conf         | 1 -
+ tests/topotests/isis_srv6_topo1/rt3/isisd.conf         | 1 -
+ tests/topotests/isis_srv6_topo1/rt4/isisd.conf         | 1 -
+ tests/topotests/isis_srv6_topo1/rt5/isisd.conf         | 1 -
+ tests/topotests/isis_srv6_topo1/rt6/isisd.conf         | 1 -
+ tests/topotests/isis_tilfa_topo1/rt1/isisd.conf        | 1 -
+ tests/topotests/isis_tilfa_topo1/rt2/isisd.conf        | 1 -
+ tests/topotests/isis_tilfa_topo1/rt3/isisd.conf        | 1 -
+ tests/topotests/isis_tilfa_topo1/rt4/isisd.conf        | 1 -
+ tests/topotests/isis_tilfa_topo1/rt5/isisd.conf        | 1 -
+ tests/topotests/isis_tilfa_topo1/rt6/isisd.conf        | 1 -
+ tests/topotests/ldp_snmp/r1/isisd.conf                 | 1 -
+ tests/topotests/ldp_snmp/r2/isisd.conf                 | 1 -
+ tests/topotests/ldp_snmp/r3/isisd.conf                 | 1 -
+ tests/topotests/ldp_sync_isis_topo1/r1/isisd.conf      | 1 -
+ tests/topotests/ldp_sync_isis_topo1/r2/isisd.conf      | 1 -
+ tests/topotests/ldp_sync_isis_topo1/r3/isisd.conf      | 1 -
+ tests/topotests/srv6_sid_manager/rt1/isisd.conf        | 1 -
+ tests/topotests/srv6_sid_manager/rt2/isisd.conf        | 1 -
+ tests/topotests/srv6_sid_manager/rt3/isisd.conf        | 1 -
+ tests/topotests/srv6_sid_manager/rt4/isisd.conf        | 1 -
+ tests/topotests/srv6_sid_manager/rt5/isisd.conf        | 1 -
+ tests/topotests/srv6_sid_manager/rt6/isisd.conf        | 1 -
+ 76 files changed, 76 deletions(-)
+
+diff --git a/tests/topotests/all_protocol_startup/r1/isisd.conf b/tests/topotests/all_protocol_startup/r1/isisd.conf
+index 8ceded894fc7..b94b6fac8d0a 100644
+--- a/tests/topotests/all_protocol_startup/r1/isisd.conf
++++ b/tests/topotests/all_protocol_startup/r1/isisd.conf
+@@ -1,4 +1,3 @@
+-log file isisd.log
+ !
+ ! debug isis events
+ !
+diff --git a/tests/topotests/isis_lfa_topo1/rt1/isisd.conf b/tests/topotests/isis_lfa_topo1/rt1/isisd.conf
+index fc81df02cb8c..db580017386d 100644
+--- a/tests/topotests/isis_lfa_topo1/rt1/isisd.conf
++++ b/tests/topotests/isis_lfa_topo1/rt1/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt1
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_lfa_topo1/rt2/isisd.conf b/tests/topotests/isis_lfa_topo1/rt2/isisd.conf
+index 6981692add18..6a75d11bc5cb 100644
+--- a/tests/topotests/isis_lfa_topo1/rt2/isisd.conf
++++ b/tests/topotests/isis_lfa_topo1/rt2/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt2
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_lfa_topo1/rt3/isisd.conf b/tests/topotests/isis_lfa_topo1/rt3/isisd.conf
+index e3ddb0984b5f..175646390f29 100644
+--- a/tests/topotests/isis_lfa_topo1/rt3/isisd.conf
++++ b/tests/topotests/isis_lfa_topo1/rt3/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt3
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_lfa_topo1/rt4/isisd.conf b/tests/topotests/isis_lfa_topo1/rt4/isisd.conf
+index 4db5c8ed057d..cd1311340ed4 100644
+--- a/tests/topotests/isis_lfa_topo1/rt4/isisd.conf
++++ b/tests/topotests/isis_lfa_topo1/rt4/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt4
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_lfa_topo1/rt5/isisd.conf b/tests/topotests/isis_lfa_topo1/rt5/isisd.conf
+index 1206a4e51f82..c028cc0280e5 100644
+--- a/tests/topotests/isis_lfa_topo1/rt5/isisd.conf
++++ b/tests/topotests/isis_lfa_topo1/rt5/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt5
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_lfa_topo1/rt6/isisd.conf b/tests/topotests/isis_lfa_topo1/rt6/isisd.conf
+index 2ba9e4991960..6a40f52d6f4e 100644
+--- a/tests/topotests/isis_lfa_topo1/rt6/isisd.conf
++++ b/tests/topotests/isis_lfa_topo1/rt6/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt6
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_lfa_topo1/rt7/isisd.conf b/tests/topotests/isis_lfa_topo1/rt7/isisd.conf
+index 060be2bf6d08..421ed25b5154 100644
+--- a/tests/topotests/isis_lfa_topo1/rt7/isisd.conf
++++ b/tests/topotests/isis_lfa_topo1/rt7/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt6
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_lsp_bits_topo1/rt1/isisd.conf b/tests/topotests/isis_lsp_bits_topo1/rt1/isisd.conf
+index 51bf7e60a5d5..777899812e32 100644
+--- a/tests/topotests/isis_lsp_bits_topo1/rt1/isisd.conf
++++ b/tests/topotests/isis_lsp_bits_topo1/rt1/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt1
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_lsp_bits_topo1/rt2/isisd.conf b/tests/topotests/isis_lsp_bits_topo1/rt2/isisd.conf
+index 96c9f33dae4e..6bdb7612ca0b 100644
+--- a/tests/topotests/isis_lsp_bits_topo1/rt2/isisd.conf
++++ b/tests/topotests/isis_lsp_bits_topo1/rt2/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt2
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_lsp_bits_topo1/rt3/isisd.conf b/tests/topotests/isis_lsp_bits_topo1/rt3/isisd.conf
+index c3354f2e68c3..14cb6eaabc1f 100644
+--- a/tests/topotests/isis_lsp_bits_topo1/rt3/isisd.conf
++++ b/tests/topotests/isis_lsp_bits_topo1/rt3/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt3
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_lsp_bits_topo1/rt4/isisd.conf b/tests/topotests/isis_lsp_bits_topo1/rt4/isisd.conf
+index f1627e75473b..c1f5cdca820b 100644
+--- a/tests/topotests/isis_lsp_bits_topo1/rt4/isisd.conf
++++ b/tests/topotests/isis_lsp_bits_topo1/rt4/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt4
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_lsp_bits_topo1/rt5/isisd.conf b/tests/topotests/isis_lsp_bits_topo1/rt5/isisd.conf
+index 41241590d14c..0c4b6b04ac80 100644
+--- a/tests/topotests/isis_lsp_bits_topo1/rt5/isisd.conf
++++ b/tests/topotests/isis_lsp_bits_topo1/rt5/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt5
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_lsp_bits_topo1/rt6/isisd.conf b/tests/topotests/isis_lsp_bits_topo1/rt6/isisd.conf
+index b66f40e9ee64..553e94974351 100644
+--- a/tests/topotests/isis_lsp_bits_topo1/rt6/isisd.conf
++++ b/tests/topotests/isis_lsp_bits_topo1/rt6/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt6
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_rlfa_topo1/rt1/isisd.conf b/tests/topotests/isis_rlfa_topo1/rt1/isisd.conf
+index c96d0b137475..a7ec2c450005 100644
+--- a/tests/topotests/isis_rlfa_topo1/rt1/isisd.conf
++++ b/tests/topotests/isis_rlfa_topo1/rt1/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt1
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_rlfa_topo1/rt2/isisd.conf b/tests/topotests/isis_rlfa_topo1/rt2/isisd.conf
+index 27203375c150..baf2d46a3775 100644
+--- a/tests/topotests/isis_rlfa_topo1/rt2/isisd.conf
++++ b/tests/topotests/isis_rlfa_topo1/rt2/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt2
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_rlfa_topo1/rt3/isisd.conf b/tests/topotests/isis_rlfa_topo1/rt3/isisd.conf
+index 1139d9df41ad..4ee5fffa8696 100644
+--- a/tests/topotests/isis_rlfa_topo1/rt3/isisd.conf
++++ b/tests/topotests/isis_rlfa_topo1/rt3/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt3
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_rlfa_topo1/rt4/isisd.conf b/tests/topotests/isis_rlfa_topo1/rt4/isisd.conf
+index 980bd5d9f01a..af29a62b479c 100644
+--- a/tests/topotests/isis_rlfa_topo1/rt4/isisd.conf
++++ b/tests/topotests/isis_rlfa_topo1/rt4/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt4
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_rlfa_topo1/rt5/isisd.conf b/tests/topotests/isis_rlfa_topo1/rt5/isisd.conf
+index 82ba9cb56e51..5b7ce0c99a01 100644
+--- a/tests/topotests/isis_rlfa_topo1/rt5/isisd.conf
++++ b/tests/topotests/isis_rlfa_topo1/rt5/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt5
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_rlfa_topo1/rt6/isisd.conf b/tests/topotests/isis_rlfa_topo1/rt6/isisd.conf
+index ea859ffa3be8..c3c66374bcf2 100644
+--- a/tests/topotests/isis_rlfa_topo1/rt6/isisd.conf
++++ b/tests/topotests/isis_rlfa_topo1/rt6/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt6
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_rlfa_topo1/rt7/isisd.conf b/tests/topotests/isis_rlfa_topo1/rt7/isisd.conf
+index 5acfa95a1315..4f8ad87708fc 100644
+--- a/tests/topotests/isis_rlfa_topo1/rt7/isisd.conf
++++ b/tests/topotests/isis_rlfa_topo1/rt7/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt7
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_rlfa_topo1/rt8/isisd.conf b/tests/topotests/isis_rlfa_topo1/rt8/isisd.conf
+index 237784280a97..0e870a927dc0 100644
+--- a/tests/topotests/isis_rlfa_topo1/rt8/isisd.conf
++++ b/tests/topotests/isis_rlfa_topo1/rt8/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt8
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_snmp/r1/isisd.conf b/tests/topotests/isis_snmp/r1/isisd.conf
+index 492834122585..559273e15602 100644
+--- a/tests/topotests/isis_snmp/r1/isisd.conf
++++ b/tests/topotests/isis_snmp/r1/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname r1
+-log file isisd.log
+ ! debug isis adj-packets
+ ! debug isis events
+ ! debug isis update-packets
+diff --git a/tests/topotests/isis_snmp/r2/isisd.conf b/tests/topotests/isis_snmp/r2/isisd.conf
+index 9bb8a8d5f917..d735e5b85527 100644
+--- a/tests/topotests/isis_snmp/r2/isisd.conf
++++ b/tests/topotests/isis_snmp/r2/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname r2
+-log file isisd.log
+ ! debug isis adj-packets
+ ! debug isis events
+ ! debug isis update-packets
+diff --git a/tests/topotests/isis_snmp/r3/isisd.conf b/tests/topotests/isis_snmp/r3/isisd.conf
+index 4daec791b3d6..4002a56abf9e 100644
+--- a/tests/topotests/isis_snmp/r3/isisd.conf
++++ b/tests/topotests/isis_snmp/r3/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname r3
+-log file isisd.log
+ ! debug isis adj-packets
+ ! debug isis events
+ ! debug isis update-packets
+diff --git a/tests/topotests/isis_snmp/r4/isisd.conf b/tests/topotests/isis_snmp/r4/isisd.conf
+index 32b07b3cb4eb..004389a1d851 100644
+--- a/tests/topotests/isis_snmp/r4/isisd.conf
++++ b/tests/topotests/isis_snmp/r4/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname r4
+-log file isisd.log
+ ! debug isis adj-packets
+ ! debug isis events
+ ! debug isis update-packets
+diff --git a/tests/topotests/isis_snmp/r5/isisd.conf b/tests/topotests/isis_snmp/r5/isisd.conf
+index fe3ca0f3aa20..abd4bb27819b 100644
+--- a/tests/topotests/isis_snmp/r5/isisd.conf
++++ b/tests/topotests/isis_snmp/r5/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname r5
+-log file isisd.log
+ ! debug isis adj-packets
+ ! debug isis events
+ ! debug isis update-packets
+diff --git a/tests/topotests/isis_sr_flex_algo_topo1/rt1/isisd.conf b/tests/topotests/isis_sr_flex_algo_topo1/rt1/isisd.conf
+index 090e89628f8e..9ea4e481ec90 100644
+--- a/tests/topotests/isis_sr_flex_algo_topo1/rt1/isisd.conf
++++ b/tests/topotests/isis_sr_flex_algo_topo1/rt1/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt1
+-log file isisd.log
+ !
+ !debug northbound
+ !debug isis events
+diff --git a/tests/topotests/isis_sr_flex_algo_topo1/rt2/isisd.conf b/tests/topotests/isis_sr_flex_algo_topo1/rt2/isisd.conf
+index 3901ccaefe7e..9ee25c20043b 100644
+--- a/tests/topotests/isis_sr_flex_algo_topo1/rt2/isisd.conf
++++ b/tests/topotests/isis_sr_flex_algo_topo1/rt2/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt2
+-log file isisd.log
+ !
+ !debug northbound
+ !debug isis events
+diff --git a/tests/topotests/isis_sr_flex_algo_topo1/rt3/isisd.conf b/tests/topotests/isis_sr_flex_algo_topo1/rt3/isisd.conf
+index f7a52bc79d1d..21ef5519a17e 100644
+--- a/tests/topotests/isis_sr_flex_algo_topo1/rt3/isisd.conf
++++ b/tests/topotests/isis_sr_flex_algo_topo1/rt3/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt3
+-log file isisd.log
+ !
+ !debug northbound
+ !debug isis events
+diff --git a/tests/topotests/isis_sr_flex_algo_topo2/rt0/isisd.conf b/tests/topotests/isis_sr_flex_algo_topo2/rt0/isisd.conf
+index c102b1b22b79..e5391fd475b2 100644
+--- a/tests/topotests/isis_sr_flex_algo_topo2/rt0/isisd.conf
++++ b/tests/topotests/isis_sr_flex_algo_topo2/rt0/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt0
+-log file isisd.log
+ !
+ !debug isis events
+ !debug isis spf-events
+diff --git a/tests/topotests/isis_sr_flex_algo_topo2/rt1/isisd.conf b/tests/topotests/isis_sr_flex_algo_topo2/rt1/isisd.conf
+index a7933888cc71..b638d4bed17d 100644
+--- a/tests/topotests/isis_sr_flex_algo_topo2/rt1/isisd.conf
++++ b/tests/topotests/isis_sr_flex_algo_topo2/rt1/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt1
+-log file isisd.log
+ !
+ !debug isis events
+ !debug isis spf-events
+diff --git a/tests/topotests/isis_sr_flex_algo_topo2/rt2/isisd.conf b/tests/topotests/isis_sr_flex_algo_topo2/rt2/isisd.conf
+index 312a6df2284a..0618bf135884 100644
+--- a/tests/topotests/isis_sr_flex_algo_topo2/rt2/isisd.conf
++++ b/tests/topotests/isis_sr_flex_algo_topo2/rt2/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt2
+-log file isisd.log
+ !
+ !debug isis events
+ !debug isis route-events
+diff --git a/tests/topotests/isis_sr_flex_algo_topo2/rt3/isisd.conf b/tests/topotests/isis_sr_flex_algo_topo2/rt3/isisd.conf
+index c287e8a5da6c..3918a577efac 100644
+--- a/tests/topotests/isis_sr_flex_algo_topo2/rt3/isisd.conf
++++ b/tests/topotests/isis_sr_flex_algo_topo2/rt3/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt3
+-log file isisd.log
+ !
+ !debug isis events
+ !debug isis route-events
+diff --git a/tests/topotests/isis_sr_flex_algo_topo2/rt4/isisd.conf b/tests/topotests/isis_sr_flex_algo_topo2/rt4/isisd.conf
+index c040ce200b21..0a3ee536652e 100644
+--- a/tests/topotests/isis_sr_flex_algo_topo2/rt4/isisd.conf
++++ b/tests/topotests/isis_sr_flex_algo_topo2/rt4/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt4
+-log file isisd.log
+ !
+ !debug isis events
+ !debug isis spf-events
+diff --git a/tests/topotests/isis_sr_flex_algo_topo2/rt5/isisd.conf b/tests/topotests/isis_sr_flex_algo_topo2/rt5/isisd.conf
+index 6cf87d44fb5f..377369514201 100644
+--- a/tests/topotests/isis_sr_flex_algo_topo2/rt5/isisd.conf
++++ b/tests/topotests/isis_sr_flex_algo_topo2/rt5/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt5
+-log file isisd.log
+ !
+ !debug isis events
+ !debug isis spf-events
+diff --git a/tests/topotests/isis_sr_flex_algo_topo2/rt6/isisd.conf b/tests/topotests/isis_sr_flex_algo_topo2/rt6/isisd.conf
+index 87a259696d9a..23121ec62001 100644
+--- a/tests/topotests/isis_sr_flex_algo_topo2/rt6/isisd.conf
++++ b/tests/topotests/isis_sr_flex_algo_topo2/rt6/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt6
+-log file isisd.log
+ !
+ !debug isis events
+ !debug isis spf-events
+diff --git a/tests/topotests/isis_sr_flex_algo_topo2/rt7/isisd.conf b/tests/topotests/isis_sr_flex_algo_topo2/rt7/isisd.conf
+index 6645542db9b3..e10354debc24 100644
+--- a/tests/topotests/isis_sr_flex_algo_topo2/rt7/isisd.conf
++++ b/tests/topotests/isis_sr_flex_algo_topo2/rt7/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt7
+-log file isisd.log
+ !
+ !debug isis events
+ !debug isis spf-events
+diff --git a/tests/topotests/isis_sr_flex_algo_topo2/rt8/isisd.conf b/tests/topotests/isis_sr_flex_algo_topo2/rt8/isisd.conf
+index 04e925e4820e..a6b7796a12c5 100644
+--- a/tests/topotests/isis_sr_flex_algo_topo2/rt8/isisd.conf
++++ b/tests/topotests/isis_sr_flex_algo_topo2/rt8/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt8
+-log file isisd.log
+ !
+ !debug isis events
+ !debug isis spf-events
+diff --git a/tests/topotests/isis_sr_flex_algo_topo2/rt9/isisd.conf b/tests/topotests/isis_sr_flex_algo_topo2/rt9/isisd.conf
+index dabb9986dffe..ce38b6ce52a8 100644
+--- a/tests/topotests/isis_sr_flex_algo_topo2/rt9/isisd.conf
++++ b/tests/topotests/isis_sr_flex_algo_topo2/rt9/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt9
+-log file isisd.log
+ !
+ !debug isis events
+ !debug isis spf-events
+diff --git a/tests/topotests/isis_sr_te_topo1/rt1/isisd.conf b/tests/topotests/isis_sr_te_topo1/rt1/isisd.conf
+index 3a94af7e0d78..93b7e7a6afe4 100644
+--- a/tests/topotests/isis_sr_te_topo1/rt1/isisd.conf
++++ b/tests/topotests/isis_sr_te_topo1/rt1/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt1
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_sr_te_topo1/rt2/isisd.conf b/tests/topotests/isis_sr_te_topo1/rt2/isisd.conf
+index 553e72cb2df2..b1539a8ee018 100644
+--- a/tests/topotests/isis_sr_te_topo1/rt2/isisd.conf
++++ b/tests/topotests/isis_sr_te_topo1/rt2/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt2
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_sr_te_topo1/rt3/isisd.conf b/tests/topotests/isis_sr_te_topo1/rt3/isisd.conf
+index 8d89612b5cb4..f6295b76cdca 100644
+--- a/tests/topotests/isis_sr_te_topo1/rt3/isisd.conf
++++ b/tests/topotests/isis_sr_te_topo1/rt3/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt3
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_sr_te_topo1/rt4/isisd.conf b/tests/topotests/isis_sr_te_topo1/rt4/isisd.conf
+index e5f72a77133e..002e838a64e7 100644
+--- a/tests/topotests/isis_sr_te_topo1/rt4/isisd.conf
++++ b/tests/topotests/isis_sr_te_topo1/rt4/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt4
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_sr_te_topo1/rt5/isisd.conf b/tests/topotests/isis_sr_te_topo1/rt5/isisd.conf
+index 1a66d18ee1f6..58a451ca60ab 100644
+--- a/tests/topotests/isis_sr_te_topo1/rt5/isisd.conf
++++ b/tests/topotests/isis_sr_te_topo1/rt5/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt5
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_sr_te_topo1/rt6/isisd.conf b/tests/topotests/isis_sr_te_topo1/rt6/isisd.conf
+index bfa988305be5..a8083667dad3 100644
+--- a/tests/topotests/isis_sr_te_topo1/rt6/isisd.conf
++++ b/tests/topotests/isis_sr_te_topo1/rt6/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt6
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_sr_topo1/rt1/isisd.conf b/tests/topotests/isis_sr_topo1/rt1/isisd.conf
+index ef8d4275c2a3..49262809c02f 100644
+--- a/tests/topotests/isis_sr_topo1/rt1/isisd.conf
++++ b/tests/topotests/isis_sr_topo1/rt1/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt1
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_sr_topo1/rt2/isisd.conf b/tests/topotests/isis_sr_topo1/rt2/isisd.conf
+index e65ec81a3c52..d67edd6e32f7 100644
+--- a/tests/topotests/isis_sr_topo1/rt2/isisd.conf
++++ b/tests/topotests/isis_sr_topo1/rt2/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt2
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_sr_topo1/rt3/isisd.conf b/tests/topotests/isis_sr_topo1/rt3/isisd.conf
+index e7b8d942ccca..36fbbd3a1352 100644
+--- a/tests/topotests/isis_sr_topo1/rt3/isisd.conf
++++ b/tests/topotests/isis_sr_topo1/rt3/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt3
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_sr_topo1/rt4/isisd.conf b/tests/topotests/isis_sr_topo1/rt4/isisd.conf
+index 92ea1ea3d9d3..6451c4a29b52 100644
+--- a/tests/topotests/isis_sr_topo1/rt4/isisd.conf
++++ b/tests/topotests/isis_sr_topo1/rt4/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt4
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_sr_topo1/rt5/isisd.conf b/tests/topotests/isis_sr_topo1/rt5/isisd.conf
+index de604d71f4c9..0db2bcef6eb8 100644
+--- a/tests/topotests/isis_sr_topo1/rt5/isisd.conf
++++ b/tests/topotests/isis_sr_topo1/rt5/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt5
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_sr_topo1/rt6/isisd.conf b/tests/topotests/isis_sr_topo1/rt6/isisd.conf
+index b96a2c6e1e1c..af1d8ec4f333 100644
+--- a/tests/topotests/isis_sr_topo1/rt6/isisd.conf
++++ b/tests/topotests/isis_sr_topo1/rt6/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt6
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_srv6_topo1/rt1/isisd.conf b/tests/topotests/isis_srv6_topo1/rt1/isisd.conf
+index 29e1a3117165..0f7af9633f2c 100644
+--- a/tests/topotests/isis_srv6_topo1/rt1/isisd.conf
++++ b/tests/topotests/isis_srv6_topo1/rt1/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt1
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_srv6_topo1/rt2/isisd.conf b/tests/topotests/isis_srv6_topo1/rt2/isisd.conf
+index b095f049101f..a8fd364bf769 100644
+--- a/tests/topotests/isis_srv6_topo1/rt2/isisd.conf
++++ b/tests/topotests/isis_srv6_topo1/rt2/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt2
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_srv6_topo1/rt3/isisd.conf b/tests/topotests/isis_srv6_topo1/rt3/isisd.conf
+index e237db2f4940..31c904fba7b9 100644
+--- a/tests/topotests/isis_srv6_topo1/rt3/isisd.conf
++++ b/tests/topotests/isis_srv6_topo1/rt3/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt3
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_srv6_topo1/rt4/isisd.conf b/tests/topotests/isis_srv6_topo1/rt4/isisd.conf
+index b4c92146a1f6..0df3fe1b99b8 100644
+--- a/tests/topotests/isis_srv6_topo1/rt4/isisd.conf
++++ b/tests/topotests/isis_srv6_topo1/rt4/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt4
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_srv6_topo1/rt5/isisd.conf b/tests/topotests/isis_srv6_topo1/rt5/isisd.conf
+index 26f895dd82ea..ffb4993cd523 100644
+--- a/tests/topotests/isis_srv6_topo1/rt5/isisd.conf
++++ b/tests/topotests/isis_srv6_topo1/rt5/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt5
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_srv6_topo1/rt6/isisd.conf b/tests/topotests/isis_srv6_topo1/rt6/isisd.conf
+index f8816db43aac..99cec5bca0cf 100644
+--- a/tests/topotests/isis_srv6_topo1/rt6/isisd.conf
++++ b/tests/topotests/isis_srv6_topo1/rt6/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt6
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_tilfa_topo1/rt1/isisd.conf b/tests/topotests/isis_tilfa_topo1/rt1/isisd.conf
+index 1218ed350f8e..c573a6a47699 100644
+--- a/tests/topotests/isis_tilfa_topo1/rt1/isisd.conf
++++ b/tests/topotests/isis_tilfa_topo1/rt1/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt1
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_tilfa_topo1/rt2/isisd.conf b/tests/topotests/isis_tilfa_topo1/rt2/isisd.conf
+index aed69713e183..d14135dc24df 100644
+--- a/tests/topotests/isis_tilfa_topo1/rt2/isisd.conf
++++ b/tests/topotests/isis_tilfa_topo1/rt2/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt2
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_tilfa_topo1/rt3/isisd.conf b/tests/topotests/isis_tilfa_topo1/rt3/isisd.conf
+index d2f01e459514..8b4e1c035d1a 100644
+--- a/tests/topotests/isis_tilfa_topo1/rt3/isisd.conf
++++ b/tests/topotests/isis_tilfa_topo1/rt3/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt3
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_tilfa_topo1/rt4/isisd.conf b/tests/topotests/isis_tilfa_topo1/rt4/isisd.conf
+index c1117b5d1bd8..8bf7c842f902 100644
+--- a/tests/topotests/isis_tilfa_topo1/rt4/isisd.conf
++++ b/tests/topotests/isis_tilfa_topo1/rt4/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt4
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_tilfa_topo1/rt5/isisd.conf b/tests/topotests/isis_tilfa_topo1/rt5/isisd.conf
+index 3678ff9074df..9366d56f440e 100644
+--- a/tests/topotests/isis_tilfa_topo1/rt5/isisd.conf
++++ b/tests/topotests/isis_tilfa_topo1/rt5/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt5
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/isis_tilfa_topo1/rt6/isisd.conf b/tests/topotests/isis_tilfa_topo1/rt6/isisd.conf
+index 9d3b464726d4..b139393fa2b0 100644
+--- a/tests/topotests/isis_tilfa_topo1/rt6/isisd.conf
++++ b/tests/topotests/isis_tilfa_topo1/rt6/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt6
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/ldp_snmp/r1/isisd.conf b/tests/topotests/ldp_snmp/r1/isisd.conf
+index d1abb497a6ce..ee23d9a308d9 100644
+--- a/tests/topotests/ldp_snmp/r1/isisd.conf
++++ b/tests/topotests/ldp_snmp/r1/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname r1
+-log file isisd.log
+ ! debug isis adj-packets
+ ! debug isis events
+ ! debug isis update-packets
+diff --git a/tests/topotests/ldp_snmp/r2/isisd.conf b/tests/topotests/ldp_snmp/r2/isisd.conf
+index 213b65ee4cc7..ec79aaa71d20 100644
+--- a/tests/topotests/ldp_snmp/r2/isisd.conf
++++ b/tests/topotests/ldp_snmp/r2/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname r2
+-log file isisd.log
+ ! debug isis adj-packets
+ ! debug isis events
+ ! debug isis update-packets
+diff --git a/tests/topotests/ldp_snmp/r3/isisd.conf b/tests/topotests/ldp_snmp/r3/isisd.conf
+index 956d58239bf1..48ca62aab15c 100644
+--- a/tests/topotests/ldp_snmp/r3/isisd.conf
++++ b/tests/topotests/ldp_snmp/r3/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname r3
+-log file isisd.log
+ ! debug isis adj-packets
+ ! debug isis events
+ ! debug isis update-packets
+diff --git a/tests/topotests/ldp_sync_isis_topo1/r1/isisd.conf b/tests/topotests/ldp_sync_isis_topo1/r1/isisd.conf
+index d1abb497a6ce..ee23d9a308d9 100644
+--- a/tests/topotests/ldp_sync_isis_topo1/r1/isisd.conf
++++ b/tests/topotests/ldp_sync_isis_topo1/r1/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname r1
+-log file isisd.log
+ ! debug isis adj-packets
+ ! debug isis events
+ ! debug isis update-packets
+diff --git a/tests/topotests/ldp_sync_isis_topo1/r2/isisd.conf b/tests/topotests/ldp_sync_isis_topo1/r2/isisd.conf
+index 213b65ee4cc7..ec79aaa71d20 100644
+--- a/tests/topotests/ldp_sync_isis_topo1/r2/isisd.conf
++++ b/tests/topotests/ldp_sync_isis_topo1/r2/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname r2
+-log file isisd.log
+ ! debug isis adj-packets
+ ! debug isis events
+ ! debug isis update-packets
+diff --git a/tests/topotests/ldp_sync_isis_topo1/r3/isisd.conf b/tests/topotests/ldp_sync_isis_topo1/r3/isisd.conf
+index 956d58239bf1..48ca62aab15c 100644
+--- a/tests/topotests/ldp_sync_isis_topo1/r3/isisd.conf
++++ b/tests/topotests/ldp_sync_isis_topo1/r3/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname r3
+-log file isisd.log
+ ! debug isis adj-packets
+ ! debug isis events
+ ! debug isis update-packets
+diff --git a/tests/topotests/srv6_sid_manager/rt1/isisd.conf b/tests/topotests/srv6_sid_manager/rt1/isisd.conf
+index 29e1a3117165..0f7af9633f2c 100644
+--- a/tests/topotests/srv6_sid_manager/rt1/isisd.conf
++++ b/tests/topotests/srv6_sid_manager/rt1/isisd.conf
+@@ -1,6 +1,5 @@
+ password 1
+ hostname rt1
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/srv6_sid_manager/rt2/isisd.conf b/tests/topotests/srv6_sid_manager/rt2/isisd.conf
+index b095f049101f..a8fd364bf769 100644
+--- a/tests/topotests/srv6_sid_manager/rt2/isisd.conf
++++ b/tests/topotests/srv6_sid_manager/rt2/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt2
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/srv6_sid_manager/rt3/isisd.conf b/tests/topotests/srv6_sid_manager/rt3/isisd.conf
+index e237db2f4940..31c904fba7b9 100644
+--- a/tests/topotests/srv6_sid_manager/rt3/isisd.conf
++++ b/tests/topotests/srv6_sid_manager/rt3/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt3
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/srv6_sid_manager/rt4/isisd.conf b/tests/topotests/srv6_sid_manager/rt4/isisd.conf
+index b4c92146a1f6..0df3fe1b99b8 100644
+--- a/tests/topotests/srv6_sid_manager/rt4/isisd.conf
++++ b/tests/topotests/srv6_sid_manager/rt4/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt4
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/srv6_sid_manager/rt5/isisd.conf b/tests/topotests/srv6_sid_manager/rt5/isisd.conf
+index 26f895dd82ea..ffb4993cd523 100644
+--- a/tests/topotests/srv6_sid_manager/rt5/isisd.conf
++++ b/tests/topotests/srv6_sid_manager/rt5/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt5
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+diff --git a/tests/topotests/srv6_sid_manager/rt6/isisd.conf b/tests/topotests/srv6_sid_manager/rt6/isisd.conf
+index f8816db43aac..99cec5bca0cf 100644
+--- a/tests/topotests/srv6_sid_manager/rt6/isisd.conf
++++ b/tests/topotests/srv6_sid_manager/rt6/isisd.conf
+@@ -1,5 +1,4 @@
+ hostname rt6
+-log file isisd.log
+ !
+ ! debug isis events
+ ! debug isis route-events
+-- 
+2.47.3
+

@@ -1,0 +1,55 @@
+From 9c445535ae1712e4bf0f153c06a92145c3309d70 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Sun, 3 May 2026 12:22:33 -0400
+Subject: [PATCH 05/21] zebra: fpm_listener has signal handlers now
+
+Add signal handlers for fpm_listener.c.  This will allow
+it to be shutdown cleanly, such that gcoverage can work.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ zebra/fpm_listener.c | 21 +++++++++++++++++++++
+ 1 file changed, 21 insertions(+)
+
+diff --git a/zebra/fpm_listener.c b/zebra/fpm_listener.c
+index 491062001e7f..098421a9fb33 100644
+--- a/zebra/fpm_listener.c
++++ b/zebra/fpm_listener.c
+@@ -1120,6 +1120,11 @@ static void fpm_serve(void)
+ 	}
+ }
+ 
++static void sigterm_handler(int signum)
++{
++	exit(0);
++}
++
+ /* Signal handler for SIGUSR1 */
+ static void sigusr1_handler(int signum)
+ {
+@@ -1214,6 +1219,22 @@ int main(int argc, char **argv)
+ 		exit(1);
+ 	}
+ 
++	memset(&sa, 0, sizeof(sa));
++	sa.sa_handler = sigterm_handler;
++	sigemptyset(&sa.sa_mask);
++	if (sigaction(SIGTERM, &sa, NULL) < 0) {
++		fprintf(stderr, "Failed to set up SIGTERM handler: %s\n", strerror(errno));
++		exit(1);
++	}
++	if (sigaction(SIGINT, &sa, NULL) < 0) {
++		fprintf(stderr, "Failed to set up SIGINT handler: %s\n", strerror(errno));
++		exit(1);
++	}
++	if (sigaction(SIGHUP, &sa, NULL) < 0) {
++		fprintf(stderr, "Failed to set up SIGHUP handler: %s\n", strerror(errno));
++		exit(1);
++	}
++
+ 	while ((r = getopt(argc, argv, "rfdvo:z:")) != -1) {
+ 		switch (r) {
+ 		case 'r':
+-- 
+2.47.3
+

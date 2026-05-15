@@ -1,0 +1,121 @@
+From f34c158e097ca662b8aab6f074c31fa419d9a15e Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 1 May 2026 16:40:34 -0400
+Subject: [PATCH 18/21] *: Cleanup snmp memory leaks
+
+bgpd, ospf6d, ospfd and zebra were not cleaning up snmp smux
+data structures no shutdown.  Do so.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ bgpd/bgp_snmp.c     |  7 +++++++
+ ospf6d/ospf6_snmp.c |  7 +++++++
+ ospfd/ospf_snmp.c   | 17 +++++++++++++++++
+ zebra/zebra_snmp.c  |  7 +++++++
+ 4 files changed, 38 insertions(+)
+
+diff --git a/bgpd/bgp_snmp.c b/bgpd/bgp_snmp.c
+index eff7c5e0f653..03b5798770e6 100644
+--- a/bgpd/bgp_snmp.c
++++ b/bgpd/bgp_snmp.c
+@@ -144,11 +144,18 @@ static int bgp_snmp_init(struct event_loop *tm)
+ 	return 0;
+ }
+ 
++static int bgp_snmp_terminate(void)
++{
++	smux_terminate();
++	return 0;
++}
++
+ static int bgp_snmp_module_init(void)
+ {
+ 	hook_register(peer_status_changed, bgpTrapEstablished);
+ 	hook_register(peer_backward_transition, bgpTrapBackwardTransition);
+ 	hook_register(frr_late_init, bgp_snmp_init);
++	hook_register(frr_fini, bgp_snmp_terminate);
+ 	hook_register(bgp_snmp_traps_config_write,
+ 		      bgp_cli_snmp_traps_config_write);
+ 	return 0;
+diff --git a/ospf6d/ospf6_snmp.c b/ospf6d/ospf6_snmp.c
+index f00d1dc125ca..7ac701973a98 100644
+--- a/ospf6d/ospf6_snmp.c
++++ b/ospf6d/ospf6_snmp.c
+@@ -1429,11 +1429,18 @@ static int ospf6_snmp_init(struct event_loop *mstr)
+ 	return 0;
+ }
+ 
++static int ospf6_snmp_terminate(void)
++{
++	smux_terminate();
++	return 0;
++}
++
+ static int ospf6_snmp_module_init(void)
+ {
+ 	hook_register(ospf6_interface_change, ospf6TrapIfStateChange);
+ 	hook_register(ospf6_neighbor_change, ospf6TrapNbrStateChange);
+ 	hook_register(frr_late_init, ospf6_snmp_init);
++	hook_register(frr_fini, ospf6_snmp_terminate);
+ 	return 0;
+ }
+ 
+diff --git a/ospfd/ospf_snmp.c b/ospfd/ospf_snmp.c
+index 83cd45788da1..084b02ff4f48 100644
+--- a/ospfd/ospf_snmp.c
++++ b/ospfd/ospf_snmp.c
+@@ -2533,6 +2533,22 @@ static int ospf_snmp_init(struct event_loop *tm)
+ 	return 0;
+ }
+ 
++static int ospf_snmp_terminate(void)
++{
++	if (ospf_snmp_iflist) {
++		ospf_snmp_iflist->del = (void (*)(void *))ospf_snmp_if_free;
++		list_delete(&ospf_snmp_iflist);
++	}
++
++	if (ospf_snmp_vl_table) {
++		route_table_finish(ospf_snmp_vl_table);
++		ospf_snmp_vl_table = NULL;
++	}
++
++	smux_terminate();
++	return 0;
++}
++
+ static int ospf_snmp_module_init(void)
+ {
+ 	hook_register(ospf_if_update, ospf_snmp_if_update);
+@@ -2543,6 +2559,7 @@ static int ospf_snmp_module_init(void)
+ 	hook_register(ospf_nsm_change, ospf_snmp_nsm_change);
+ 
+ 	hook_register(frr_late_init, ospf_snmp_init);
++	hook_register(frr_fini, ospf_snmp_terminate);
+ 	return 0;
+ }
+ 
+diff --git a/zebra/zebra_snmp.c b/zebra/zebra_snmp.c
+index 06a9c0debec1..1fd1f3820823 100644
+--- a/zebra/zebra_snmp.c
++++ b/zebra/zebra_snmp.c
+@@ -546,9 +546,16 @@ static int zebra_snmp_init(struct event_loop *tm)
+ 	return 0;
+ }
+ 
++static int zebra_snmp_terminate(void)
++{
++	smux_terminate();
++	return 0;
++}
++
+ static int zebra_snmp_module_init(void)
+ {
+ 	hook_register(frr_late_init, zebra_snmp_init);
++	hook_register(frr_fini, zebra_snmp_terminate);
+ 	return 0;
+ }
+ 
+-- 
+2.47.3
+

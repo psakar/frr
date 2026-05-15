@@ -1,0 +1,126 @@
+From c2e0c6c9b8d5d4e8c127f9a5cf0930eed93c607c Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 1 May 2026 14:11:37 -0400
+Subject: [PATCH 11/21] pbrd: termination cleanup of memory leaks
+
+a) pbr maps were being leaked, stop
+b) nexthop-groups were being leaked, stop
+c) access list's were being leaked, stop
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ pbrd/pbr_main.c |  4 ++++
+ pbrd/pbr_map.c  | 14 ++++++++++++++
+ pbrd/pbr_map.h  |  1 +
+ pbrd/pbr_nht.c  | 28 ++++++++++++++++++++++++++++
+ pbrd/pbr_nht.h  |  1 +
+ 5 files changed, 48 insertions(+)
+
+diff --git a/pbrd/pbr_main.c b/pbrd/pbr_main.c
+index 7724a795d7f0..0a4aa34d501f 100644
+--- a/pbrd/pbr_main.c
++++ b/pbrd/pbr_main.c
+@@ -69,7 +69,11 @@ static FRR_NORETURN void sigint(void)
+ {
+ 	zlog_notice("Terminating on signal");
+ 
++	pbr_map_terminate();
+ 	pbr_vrf_terminate();
++	nexthop_group_terminate();
++	pbr_nht_terminate();
++	access_list_reset();
+ 
+ 	pbr_zebra_destroy();
+ 
+diff --git a/pbrd/pbr_map.c b/pbrd/pbr_map.c
+index 713345a13016..0bd1fb3ba3a1 100644
+--- a/pbrd/pbr_map.c
++++ b/pbrd/pbr_map.c
+@@ -957,3 +957,17 @@ void pbr_map_init(void)
+ 
+ 	pbr_map_sequence_unique = 1;
+ }
++
++void pbr_map_terminate(void)
++{
++	struct pbr_map *pbrm;
++
++	while ((pbrm = RB_ROOT(pbr_map_entry_head, &pbr_maps))) {
++		struct pbr_map_sequence *pbrms;
++
++		pbrms = listnode_head(pbrm->seqnumbers);
++		assert(pbrms);
++
++		pbr_map_delete(pbrms);
++	}
++}
+diff --git a/pbrd/pbr_map.h b/pbrd/pbr_map.h
+index 9fb674bd6eb8..976e0e65ffff 100644
+--- a/pbrd/pbr_map.h
++++ b/pbrd/pbr_map.h
+@@ -246,6 +246,7 @@ extern void pbr_map_schedule_policy_from_nhg(const char *nh_group,
+ 					     bool installed);
+ 
+ extern void pbr_map_install(struct pbr_map *pbrm);
++extern void pbr_map_terminate(void);
+ 
+ extern void pbr_map_policy_install(const char *name);
+ extern void pbr_map_policy_delete(struct pbr_map *pbrm,
+diff --git a/pbrd/pbr_nht.c b/pbrd/pbr_nht.c
+index 5f87c0c1fa61..76fecc3f8866 100644
+--- a/pbrd/pbr_nht.c
++++ b/pbrd/pbr_nht.c
+@@ -173,6 +173,13 @@ static void pbr_nhgc_delete(struct pbr_nexthop_group_cache *p)
+ 	XFREE(MTYPE_PBR_NHG, p);
+ }
+ 
++static void pbr_nhrc_delete(void *arg)
++{
++	struct nhrc *nhrc = arg;
++
++	XFREE(MTYPE_PBR_NHG, nhrc);
++}
++
+ static void *pbr_nhgc_alloc(void *p)
+ {
+ 	struct pbr_nexthop_group_cache *new;
+@@ -1486,3 +1493,24 @@ void pbr_nht_init(void)
+ 	/* First unallocated table is lowest in range on init */
+ 	pbr_next_unallocated_table_id = PBR_NHT_DEFAULT_LOW_TABLEID;
+ }
++
++void pbr_nht_terminate(void)
++{
++	if (pbr_nhg_hash) {
++		hash_clean(pbr_nhg_hash, (void (*)(void *))pbr_nhgc_delete);
++		hash_free(pbr_nhg_hash);
++		pbr_nhg_hash = NULL;
++	}
++
++	if (pbr_nhrc_hash) {
++		hash_clean(pbr_nhrc_hash, pbr_nhrc_delete);
++		hash_free(pbr_nhrc_hash);
++		pbr_nhrc_hash = NULL;
++	}
++
++	if (pbr_nhg_allocated_id_hash) {
++		hash_clean(pbr_nhg_allocated_id_hash, NULL);
++		hash_free(pbr_nhg_allocated_id_hash);
++		pbr_nhg_allocated_id_hash = NULL;
++	}
++}
+diff --git a/pbrd/pbr_nht.h b/pbrd/pbr_nht.h
+index a8c26413798b..92dc4060bbc7 100644
+--- a/pbrd/pbr_nht.h
++++ b/pbrd/pbr_nht.h
+@@ -139,6 +139,7 @@ extern void pbr_nht_nexthop_update(struct zapi_route *nhr);
+ extern void pbr_nht_nexthop_interface_update(struct interface *ifp);
+ 
+ extern void pbr_nht_init(void);
++extern void pbr_nht_terminate(void);
+ 
+ extern void pbr_nht_vrf_update(struct pbr_vrf *pbr_vrf);
+ extern void pbr_nht_interface_update(struct interface *ifp);
+-- 
+2.47.3
+

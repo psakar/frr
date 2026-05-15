@@ -1,0 +1,80 @@
+From 506287772549bbd5ff59a4e74cbb32ed98a5b36a Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 1 May 2026 14:30:58 -0400
+Subject: [PATCH 13/21] sharpd: memory leaks on shutdown cleanup
+
+a) srv6 memory leaks on shutdown, stop
+b) nexthop-group memory leaks on shutdown, stop
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ sharpd/sharp_main.c | 14 ++++++++++++++
+ sharpd/sharp_nht.c  |  5 +++++
+ sharpd/sharp_nht.h  |  1 +
+ 3 files changed, 20 insertions(+)
+
+diff --git a/sharpd/sharp_main.c b/sharpd/sharp_main.c
+index 76aa923e09c8..7f39f4a8ab64 100644
+--- a/sharpd/sharp_main.c
++++ b/sharpd/sharp_main.c
+@@ -27,6 +27,7 @@
+ #include "distribute.h"
+ #include "libfrr.h"
+ #include "routemap.h"
++#include "nexthop.h"
+ #include "nexthop_group.h"
+ #include "link_state.h"
+ 
+@@ -74,6 +75,18 @@ static void sharp_srv6_locators_list_delete(void *item)
+ 
+ static void sharp_global_destroy(void)
+ {
++	/*
++	 * Route templates can keep SRv6 encap/seg6local payloads attached to
++	 * sg.r.nhop across command invocations. Ensure they are released at exit.
++	 */
++	nexthop_del_srv6_seg6local(&sg.r.nhop);
++	nexthop_del_srv6_seg6(&sg.r.nhop);
++	nexthop_del_srv6_seg6local(&sg.r.backup_nhop);
++	nexthop_del_srv6_seg6(&sg.r.backup_nhop);
++
++	/* Free imported Traffic Engineering LSDB (nodes/edges/subnets + attrs). */
++	ls_ted_del_all(&sg.ted);
++
+ 	list_delete(&sg.nhs);
+ 
+ 	sg.srv6_locators->del = sharp_srv6_locators_list_delete;
+@@ -94,6 +107,7 @@ static FRR_NORETURN void sigint(void)
+ {
+ 	zlog_notice("Terminating on signal");
+ 
++	sharp_nhgroup_terminate();
+ 	vrf_terminate();
+ 	sharp_zebra_terminate();
+ 
+diff --git a/sharpd/sharp_nht.c b/sharpd/sharp_nht.c
+index 6d64fcfb259b..b42a1fba7f19 100644
+--- a/sharpd/sharp_nht.c
++++ b/sharpd/sharp_nht.c
+@@ -229,3 +229,8 @@ void sharp_nhgroup_init(void)
+ 			   sharp_nhgroup_del_nexthop_cb,
+ 			   sharp_nhgroup_delete_cb);
+ }
++
++void sharp_nhgroup_terminate(void)
++{
++	nexthop_group_terminate();
++}
+diff --git a/sharpd/sharp_nht.h b/sharpd/sharp_nht.h
+index b27952ac511c..233b0c5f77fa 100644
+--- a/sharpd/sharp_nht.h
++++ b/sharpd/sharp_nht.h
+@@ -27,4 +27,5 @@ extern void sharp_nhgroup_id_set_installed(uint32_t id, bool installed);
+ extern bool sharp_nhgroup_id_is_installed(uint32_t id);
+ 
+ extern void sharp_nhgroup_init(void);
++extern void sharp_nhgroup_terminate(void);
+ #endif
+-- 
+2.47.3
+

@@ -1,0 +1,324 @@
+From 27141f85fbd8d6e9bec4e74e86eac241ce7b4a4b Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 1 May 2026 12:26:01 -0400
+Subject: [PATCH 08/21] isisd: Clean up and memory leaks in isis
+
+a) isisd is using a MTYPE_TMP in a bunch of different places,
+add better descriptors and break it up a bit.
+
+b) Cleanup of sbuf usage such that memory is not leaked on shutdown.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ isisd/isis_circuit.c     |  2 +-
+ isisd/isis_main.c        |  2 ++
+ isisd/isis_misc.c        | 13 +++++++----
+ isisd/isis_nb_config.c   | 13 +++++++----
+ isisd/isis_tlvs.c        | 50 +++++++++++++++++++++++++++++-----------
+ isisd/isis_tlvs.h        |  1 +
+ isisd/isis_vty_fabricd.c |  6 +++--
+ isisd/isisd.c            |  1 +
+ isisd/isisd.h            |  1 +
+ 9 files changed, 62 insertions(+), 27 deletions(-)
+
+diff --git a/isisd/isis_circuit.c b/isisd/isis_circuit.c
+index 6bcb7190c764..cc6a699981c0 100644
+--- a/isisd/isis_circuit.c
++++ b/isisd/isis_circuit.c
+@@ -211,7 +211,7 @@ void isis_circuit_del(struct isis_circuit *circuit)
+ 		circuit->ext = NULL;
+ 	}
+ 
+-	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
++	XFREE(MTYPE_ISIS_BFD_PROFILE, circuit->bfd_config.profile);
+ 	XFREE(MTYPE_ISIS_CIRCUIT, circuit->tag);
+ 
+ 	/* and lastly the circuit itself */
+diff --git a/isisd/isis_main.c b/isisd/isis_main.c
+index 24b40de912e8..7acfb3b2327d 100644
+--- a/isisd/isis_main.c
++++ b/isisd/isis_main.c
+@@ -46,6 +46,7 @@
+ #include "isisd/isis_bfd.h"
+ #include "isisd/isis_lsp.h"
+ #include "isisd/isis_mt.h"
++#include "isisd/isis_tlvs.h"
+ #include "isisd/fabricd.h"
+ #include "isisd/isis_nb.h"
+ #include "isisd/isis_ldp_sync.h"
+@@ -122,6 +123,7 @@ static FRR_NORETURN void terminate(int i)
+ 	isis_affinity_map_terminate();
+ #endif
+ 	isis_master_terminate();
++	isis_tlvs_terminate();
+ 
+ 	frr_fini();
+ 	exit(i);
+diff --git a/isisd/isis_misc.c b/isisd/isis_misc.c
+index 088b8016cc45..66b0b5cf91e5 100644
+--- a/isisd/isis_misc.c
++++ b/isisd/isis_misc.c
+@@ -31,7 +31,10 @@
+ #include "isisd/isis_adjacency.h"
+ #include "isisd/isis_dynhn.h"
+ 
+-/* staticly assigned vars for printing purposes */
++DEFINE_MTYPE_STATIC(ISISD, ISIS_TMP_LOG_MULTILINE, "ISIS log multiline temporary");
++DEFINE_MTYPE_STATIC(ISISD, ISIS_TMP_VTY_MULTILINE, "ISIS vty multiline temporary");
++
++/* statically assigned vars for printing purposes */
+ static char sys_hostname[ISO_SYSID_STRLEN];
+ struct in_addr new_prefix;
+ /* len of xxYxxMxWxdxxhxxmxxs + place for #0 termination */
+@@ -408,7 +411,7 @@ void log_multiline(int priority, const char *prefix, const char *format, ...)
+ 	char *p;
+ 
+ 	va_start(ap, format);
+-	p = vasnprintfrr(MTYPE_TMP, shortbuf, sizeof(shortbuf), format, ap);
++	p = vasnprintfrr(MTYPE_ISIS_TMP_LOG_MULTILINE, shortbuf, sizeof(shortbuf), format, ap);
+ 	va_end(ap);
+ 
+ 	if (!p)
+@@ -421,7 +424,7 @@ void log_multiline(int priority, const char *prefix, const char *format, ...)
+ 	}
+ 
+ 	if (p != shortbuf)
+-		XFREE(MTYPE_TMP, p);
++		XFREE(MTYPE_ISIS_TMP_LOG_MULTILINE, p);
+ }
+ 
+ void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
+@@ -431,7 +434,7 @@ void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
+ 	char *p;
+ 
+ 	va_start(ap, format);
+-	p = vasnprintfrr(MTYPE_TMP, shortbuf, sizeof(shortbuf), format, ap);
++	p = vasnprintfrr(MTYPE_ISIS_TMP_VTY_MULTILINE, shortbuf, sizeof(shortbuf), format, ap);
+ 	va_end(ap);
+ 
+ 	if (!p)
+@@ -444,7 +447,7 @@ void vty_multiline(struct vty *vty, const char *prefix, const char *format, ...)
+ 	}
+ 
+ 	if (p != shortbuf)
+-		XFREE(MTYPE_TMP, p);
++		XFREE(MTYPE_ISIS_TMP_VTY_MULTILINE, p);
+ }
+ 
+ void vty_out_timestr(struct vty *vty, time_t uptime)
+diff --git a/isisd/isis_nb_config.c b/isisd/isis_nb_config.c
+index a6ce9f674278..8b11ba56e1ab 100644
+--- a/isisd/isis_nb_config.c
++++ b/isisd/isis_nb_config.c
+@@ -45,6 +45,8 @@
+ #include "isisd/isis_flex_algo.h"
+ #include "isisd/isis_zebra.h"
+ 
++DEFINE_MTYPE_STATIC(ISISD, ISIS_TMP_SPF_BACKOFF_BUF_NB, "ISIS NB SPF backoff temporary buffer");
++
+ #define AFFINITY_INCLUDE_ANY 0
+ #define AFFINITY_INCLUDE_ALL 1
+ #define AFFINITY_EXCLUDE_ANY 2
+@@ -632,7 +634,7 @@ void ietf_backoff_delay_apply_finish(struct nb_cb_apply_finish_args *args)
+ 	long timetolearn = yang_dnode_get_uint16(args->dnode, "time-to-learn");
+ 	struct isis_area *area = nb_running_get_entry(args->dnode, NULL, true);
+ 	size_t bufsiz = strlen(area->area_tag) + sizeof("IS-IS  Lx");
+-	char *buf = XCALLOC(MTYPE_TMP, bufsiz);
++	char *buf = XCALLOC(MTYPE_ISIS_TMP_SPF_BACKOFF_BUF_NB, bufsiz);
+ 
+ 	snprintf(buf, bufsiz, "IS-IS %s L1", area->area_tag);
+ 	spf_backoff_free(area->spf_delay_ietf[0]);
+@@ -644,7 +646,7 @@ void ietf_backoff_delay_apply_finish(struct nb_cb_apply_finish_args *args)
+ 	area->spf_delay_ietf[1] = spf_backoff_new(master, buf, init_delay, short_delay, long_delay,
+ 						  holddown, timetolearn);
+ 
+-	XFREE(MTYPE_TMP, buf);
++	XFREE(MTYPE_ISIS_TMP_SPF_BACKOFF_BUF_NB, buf);
+ }
+ 
+ int isis_instance_spf_ietf_backoff_delay_create(struct nb_cb_create_args *args)
+@@ -3633,8 +3635,9 @@ int lib_interface_isis_bfd_monitoring_profile_modify(struct nb_cb_modify_args *a
+ 		return NB_OK;
+ 
+ 	circuit = nb_running_get_entry(args->dnode, NULL, true);
+-	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
+-	circuit->bfd_config.profile = XSTRDUP(MTYPE_TMP, yang_dnode_get_string(args->dnode, NULL));
++	XFREE(MTYPE_ISIS_BFD_PROFILE, circuit->bfd_config.profile);
++	circuit->bfd_config.profile = XSTRDUP(MTYPE_ISIS_BFD_PROFILE,
++					      yang_dnode_get_string(args->dnode, NULL));
+ 
+ 	return NB_OK;
+ }
+@@ -3647,7 +3650,7 @@ int lib_interface_isis_bfd_monitoring_profile_destroy(struct nb_cb_destroy_args
+ 		return NB_OK;
+ 
+ 	circuit = nb_running_get_entry(args->dnode, NULL, true);
+-	XFREE(MTYPE_TMP, circuit->bfd_config.profile);
++	XFREE(MTYPE_ISIS_BFD_PROFILE, circuit->bfd_config.profile);
+ 
+ 	return NB_OK;
+ }
+diff --git a/isisd/isis_tlvs.c b/isisd/isis_tlvs.c
+index b0b51ea9e75f..303b9ae6106e 100644
+--- a/isisd/isis_tlvs.c
++++ b/isisd/isis_tlvs.c
+@@ -58,6 +58,11 @@ typedef void (*format_item_func)(uint16_t mtid, struct isis_item *i, struct sbuf
+ 				 struct json_object *json, int indent);
+ typedef struct isis_item *(*copy_item_func)(struct isis_item *i);
+ 
++static struct sbuf format_tlvs_buf;
++static bool format_tlvs_buf_inited;
++static struct sbuf unpack_tlvs_logbuf;
++static bool unpack_tlvs_logbuf_inited;
++
+ struct tlv_ops {
+ 	const char *name;
+ 	unpack_tlv_func unpack;
+@@ -6303,14 +6308,14 @@ const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json)
+ 		format_tlvs(tlvs, NULL, json, 0);
+ 		return NULL;
+ 	} else {
+-		static struct sbuf buf;
+-
+-		if (!sbuf_buf(&buf))
+-			sbuf_init(&buf, NULL, 0);
++		if (!format_tlvs_buf_inited) {
++			sbuf_init(&format_tlvs_buf, NULL, 0);
++			format_tlvs_buf_inited = true;
++		}
+ 
+-		sbuf_reset(&buf);
+-		format_tlvs(tlvs, &buf, NULL, 0);
+-		return sbuf_buf(&buf);
++		sbuf_reset(&format_tlvs_buf);
++		format_tlvs(tlvs, &format_tlvs_buf, NULL, 0);
++		return sbuf_buf(&format_tlvs_buf);
+ 	}
+ }
+ 
+@@ -6664,31 +6669,48 @@ static int unpack_tlvs(enum isis_tlv_context context, size_t avail_len, struct s
+ int isis_unpack_tlvs(size_t avail_len, struct stream *stream, struct isis_tlvs **dest,
+ 		     const char **log)
+ {
+-	static struct sbuf logbuf;
+ 	int indent = 0;
+ 	int rv;
+ 	struct isis_tlvs *result;
+ 
+-	if (!sbuf_buf(&logbuf))
+-		sbuf_init(&logbuf, NULL, 0);
++	if (!unpack_tlvs_logbuf_inited) {
++		sbuf_init(&unpack_tlvs_logbuf, NULL, 0);
++		unpack_tlvs_logbuf_inited = true;
++	}
+ 
+-	sbuf_reset(&logbuf);
++	sbuf_reset(&unpack_tlvs_logbuf);
+ 	if (avail_len > STREAM_READABLE(stream)) {
+-		sbuf_push(&logbuf, indent,
++		sbuf_push(&unpack_tlvs_logbuf, indent,
+ 			  "Stream doesn't contain sufficient data. Claimed %zu, available %zu\n",
+ 			  avail_len, STREAM_READABLE(stream));
+ 		return 1;
+ 	}
+ 
+ 	result = isis_alloc_tlvs();
+-	rv = unpack_tlvs(ISIS_CONTEXT_LSP, avail_len, stream, &logbuf, result, indent, NULL);
++	rv = unpack_tlvs(ISIS_CONTEXT_LSP, avail_len, stream, &unpack_tlvs_logbuf, result, indent,
++			 NULL);
+ 
+-	*log = sbuf_buf(&logbuf);
++	*log = sbuf_buf(&unpack_tlvs_logbuf);
+ 	*dest = result;
+ 
+ 	return rv;
+ }
+ 
++void isis_tlvs_terminate(void)
++{
++	if (format_tlvs_buf_inited) {
++		sbuf_free(&format_tlvs_buf);
++		memset(&format_tlvs_buf, 0, sizeof(format_tlvs_buf));
++		format_tlvs_buf_inited = false;
++	}
++
++	if (unpack_tlvs_logbuf_inited) {
++		sbuf_free(&unpack_tlvs_logbuf);
++		memset(&unpack_tlvs_logbuf, 0, sizeof(unpack_tlvs_logbuf));
++		unpack_tlvs_logbuf_inited = false;
++	}
++}
++
+ #define TLV_OPS(_name_, _desc_)                                                                   \
+ 	static const struct tlv_ops tlv_##_name_##_ops = {                                        \
+ 		.name = _desc_,                                                                   \
+diff --git a/isisd/isis_tlvs.h b/isisd/isis_tlvs.h
+index 889d7369b2e6..b952e4f28890 100644
+--- a/isisd/isis_tlvs.h
++++ b/isisd/isis_tlvs.h
+@@ -757,6 +757,7 @@ struct isis_subsubtlvs *isis_alloc_subsubtlvs(enum isis_tlv_context context);
+ int isis_unpack_tlvs(size_t avail_len, struct stream *stream, struct isis_tlvs **dest,
+ 		     const char **error_log);
+ const char *isis_format_tlvs(struct isis_tlvs *tlvs, struct json_object *json);
++void isis_tlvs_terminate(void);
+ struct isis_tlvs *isis_copy_tlvs(struct isis_tlvs *tlvs);
+ struct list *isis_fragment_tlvs(struct isis_tlvs *tlvs, size_t size);
+ 
+diff --git a/isisd/isis_vty_fabricd.c b/isisd/isis_vty_fabricd.c
+index 8560e898cba4..b99b677df79b 100644
+--- a/isisd/isis_vty_fabricd.c
++++ b/isisd/isis_vty_fabricd.c
+@@ -22,6 +22,8 @@
+ #include "lib/spf_backoff.h"
+ #include "isisd/isis_mt.h"
+ 
++DEFINE_MTYPE_STATIC(ISISD, ISIS_TMP_SPF_BACKOFF_BUF_VTY, "ISIS VTY SPF backoff temporary buffer");
++
+ static struct isis_circuit *isis_circuit_lookup(struct vty *vty)
+ {
+ 	struct interface *ifp = VTY_GET_CONTEXT(interface);
+@@ -696,7 +698,7 @@ DEFUN (spf_delay_ietf,
+ 	long timetolearn = atol(argv[10]->arg);
+ 
+ 	size_t bufsiz = strlen(area->area_tag) + sizeof("IS-IS  Lx");
+-	char *buf = XCALLOC(MTYPE_TMP, bufsiz);
++	char *buf = XCALLOC(MTYPE_ISIS_TMP_SPF_BACKOFF_BUF_VTY, bufsiz);
+ 
+ 	snprintf(buf, bufsiz, "IS-IS %s L1", area->area_tag);
+ 	spf_backoff_free(area->spf_delay_ietf[0]);
+@@ -710,7 +712,7 @@ DEFUN (spf_delay_ietf,
+ 		spf_backoff_new(master, buf, init_delay, short_delay,
+ 				long_delay, holddown, timetolearn);
+ 
+-	XFREE(MTYPE_TMP, buf);
++	XFREE(MTYPE_ISIS_TMP_SPF_BACKOFF_BUF_VTY, buf);
+ 	return CMD_SUCCESS;
+ }
+ 
+diff --git a/isisd/isisd.c b/isisd/isisd.c
+index e4986bc56f86..6aae50ba5985 100644
+--- a/isisd/isisd.c
++++ b/isisd/isisd.c
+@@ -80,6 +80,7 @@ DEFINE_MTYPE_STATIC(ISISD, ISIS_AREA, "ISIS area");
+ DEFINE_MTYPE(ISISD, ISIS_AREA_ADDR,   "ISIS area address");
+ DEFINE_MTYPE(ISISD, ISIS_ACL_NAME,    "ISIS access-list name");
+ DEFINE_MTYPE(ISISD, ISIS_PLIST_NAME, "ISIS prefix-list name");
++DEFINE_MTYPE(ISISD, ISIS_BFD_PROFILE, "ISIS BFD profile");
+ 
+ DEFINE_QOBJ_TYPE(isis_area);
+ 
+diff --git a/isisd/isisd.h b/isisd/isisd.h
+index 62363151585c..2721e50fbed7 100644
+--- a/isisd/isisd.h
++++ b/isisd/isisd.h
+@@ -286,6 +286,7 @@ DECLARE_DLIST(isis_area_list, struct isis_area, area_list_item);
+ DECLARE_MTYPE(ISIS_ACL_NAME);	/* isis_area->spf_prefix_prioritites */
+ DECLARE_MTYPE(ISIS_AREA_ADDR);	/* isis_area->area_addrs */
+ DECLARE_MTYPE(ISIS_PLIST_NAME);
++DECLARE_MTYPE(ISIS_BFD_PROFILE); /* isis_circuit->bfd_config.profile */
+ 
+ DECLARE_HOOK(isis_area_overload_bit_update, (struct isis_area * area), (area));
+ 
+-- 
+2.47.3
+

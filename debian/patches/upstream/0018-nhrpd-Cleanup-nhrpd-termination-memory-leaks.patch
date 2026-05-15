@@ -1,0 +1,105 @@
+From 5bec9de50fe664bcbc857e16f6e656c328968c03 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 1 May 2026 14:18:31 -0400
+Subject: [PATCH 12/21] nhrpd: Cleanup nhrpd termination memory leaks
+
+a) interface gre memory leaks, stop
+b) packet request id memory leaks, stop
+c) event request id memory leaks, stop
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ nhrpd/nhrp_interface.c | 10 ++++++++++
+ nhrpd/nhrp_main.c      |  3 +++
+ nhrpd/nhrpd.h          |  2 ++
+ nhrpd/reqid.c          |  9 +++++++++
+ 4 files changed, 24 insertions(+)
+
+diff --git a/nhrpd/nhrp_interface.c b/nhrpd/nhrp_interface.c
+index 947ef77b9410..a70ce536fbea 100644
+--- a/nhrpd/nhrp_interface.c
++++ b/nhrpd/nhrp_interface.c
+@@ -52,6 +52,11 @@ static void *nhrp_interface_gre_alloc(void *data)
+ 	return a;
+ }
+ 
++static void nhrp_interface_gre_free(void *data)
++{
++	XFREE(MTYPE_NHRP_IF_GRE, data);
++}
++
+ struct nhrp_gre_info *nhrp_gre_info_alloc(struct nhrp_gre_info *p)
+ {
+ 	struct nhrp_gre_info *a;
+@@ -115,6 +120,11 @@ void nhrp_interface_init(void)
+ 				    "NHRP GRE list Hash");
+ }
+ 
++void nhrp_interface_terminate(void)
++{
++	hash_clean_and_free(&nhrp_gre_list, nhrp_interface_gre_free);
++}
++
+ void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi)
+ {
+ 	struct nhrp_interface *nifp = ifp->info;
+diff --git a/nhrpd/nhrp_main.c b/nhrpd/nhrp_main.c
+index 3c33db316701..480ab6b9f0ac 100644
+--- a/nhrpd/nhrp_main.c
++++ b/nhrpd/nhrp_main.c
+@@ -88,12 +88,15 @@ static FRR_NORETURN void nhrp_request_stop(void)
+ 	nhrp_zebra_terminate();
+ 	vici_terminate();
+ 	evmgr_terminate();
++	nhrp_interface_terminate();
+ 	vrf_terminate();
+ 	nhrp_vc_terminate();
+ 
+ 	debugf(NHRP_DEBUG_COMMON, "Done.");
+ 
+ 	resolver_terminate();
++	nhrp_reqid_terminate(&nhrp_packet_reqid);
++	nhrp_reqid_terminate(&nhrp_event_reqid);
+ 	frr_fini();
+ 
+ 	exit(0);
+diff --git a/nhrpd/nhrpd.h b/nhrpd/nhrpd.h
+index 5d59a60e766e..97be65cd087b 100644
+--- a/nhrpd/nhrpd.h
++++ b/nhrpd/nhrpd.h
+@@ -364,6 +364,7 @@ extern struct zebra_privs_t nhrpd_privs;
+ int sock_open_unix(const char *path);
+ 
+ void nhrp_interface_init(void);
++void nhrp_interface_terminate(void);
+ void nhrp_interface_update(struct interface *ifp);
+ void nhrp_interface_update_arp(struct interface *ifp, bool arp_enable);
+ void nhrp_interface_update_mtu(struct interface *ifp, afi_t afi);
+@@ -516,6 +517,7 @@ uint32_t nhrp_reqid_alloc(struct nhrp_reqid_pool *p, struct nhrp_reqid *r,
+ 			  void (*cb)(struct nhrp_reqid *, void *));
+ void nhrp_reqid_free(struct nhrp_reqid_pool *p, struct nhrp_reqid *r);
+ struct nhrp_reqid *nhrp_reqid_lookup(struct nhrp_reqid_pool *, uint32_t reqid);
++void nhrp_reqid_terminate(struct nhrp_reqid_pool *p);
+ 
+ int nhrp_packet_init(void);
+ 
+diff --git a/nhrpd/reqid.c b/nhrpd/reqid.c
+index c2f5d24b69b8..d6d094919cad 100644
+--- a/nhrpd/reqid.c
++++ b/nhrpd/reqid.c
+@@ -52,3 +52,12 @@ struct nhrp_reqid *nhrp_reqid_lookup(struct nhrp_reqid_pool *p, uint32_t reqid)
+ 	key.request_id = reqid;
+ 	return hash_lookup(p->reqid_hash, &key);
+ }
++
++void nhrp_reqid_terminate(struct nhrp_reqid_pool *p)
++{
++	if (!p)
++		return;
++
++	hash_clean_and_free(&p->reqid_hash, NULL);
++	p->next_request_id = 0;
++}
+-- 
+2.47.3
+

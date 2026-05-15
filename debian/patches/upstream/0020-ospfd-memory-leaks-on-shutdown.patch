@@ -1,0 +1,38 @@
+From c45c8876301933ede0948775bc34a2cb911c33d5 Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 1 May 2026 14:33:23 -0400
+Subject: [PATCH 14/21] ospfd: memory leaks on shutdown
+
+Cleanup ted memory leaks on shutdown.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ ospfd/ospf_te.c | 5 +++++
+ 1 file changed, 5 insertions(+)
+
+diff --git a/ospfd/ospf_te.c b/ospfd/ospf_te.c
+index 22abb58b02e5..a5c40f5d547d 100644
+--- a/ospfd/ospf_te.c
++++ b/ospfd/ospf_te.c
+@@ -159,6 +159,9 @@ int ospf_mpls_te_init(void)
+ 
+ void ospf_mpls_te_term(void)
+ {
++	/* Release imported/exported TE link-state database on daemon exit. */
++	ls_ted_del_all(&OspfMplsTE.ted);
++
+ 	list_delete(&OspfMplsTE.iflist);
+ 
+ 	ospf_delete_opaque_functab(OSPF_OPAQUE_AREA_LSA,
+@@ -177,6 +180,8 @@ void ospf_mpls_te_term(void)
+ 
+ void ospf_mpls_te_finish(void)
+ {
++	ls_ted_del_all(&OspfMplsTE.ted);
++
+ 	OspfMplsTE.enabled = false;
+ 	OspfMplsTE.inter_as = Off;
+ 	OspfMplsTE.export = false;
+-- 
+2.47.3
+

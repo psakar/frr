@@ -1,0 +1,175 @@
+From ce85fb6a6ba5f81a2782d87d1ac6c60ee29d575d Mon Sep 17 00:00:00 2001
+From: Donald Sharp <sharpd@nvidia.com>
+Date: Fri, 1 May 2026 15:09:52 -0400
+Subject: [PATCH 16/21] zebra: cleanup memory leaks on shutdown
+
+a) vxlan memory leaks on shutdown, fix.
+b) evpn-mh memory leaks on shutdown, fix.
+c) mpls-fec memory leaks on shutdown, fix.
+d) route-map memory leaks on shutdown, fix.
+
+Signed-off-by: Donald Sharp <sharpd@nvidia.com>
+---
+ zebra/interface.c      | 16 ++++++++++++++++
+ zebra/zebra_evpn_mh.c  | 23 +++++++++++++++++------
+ zebra/zebra_mpls.c     | 15 +++++++++++++++
+ zebra/zebra_routemap.c | 22 ++++++++++++++++++++++
+ 4 files changed, 70 insertions(+), 6 deletions(-)
+
+diff --git a/zebra/interface.c b/zebra/interface.c
+index 23324a677314..de71b0c31a81 100644
+--- a/zebra/interface.c
++++ b/zebra/interface.c
+@@ -32,6 +32,7 @@
+ #include "zebra/rt_netlink.h"
+ #include "zebra/if_netlink.h"
+ #include "zebra/zebra_vxlan.h"
++#include "zebra/zebra_vxlan_if.h"
+ #include "zebra/zebra_errors.h"
+ #include "zebra/zebra_evpn_mh.h"
+ #include "zebra/zebra_trace.h"
+@@ -228,6 +229,21 @@ static int if_zebra_delete_hook(struct interface *ifp)
+ 			list_delete(&bond->mbr_zifs);
+ 
+ 		zebra_l2_bridge_if_cleanup(ifp);
++		/*
++		 * Destroy any per-VXLAN-IF SVD VNI table that is still hanging
++		 * around.  In the runtime delete path this is already done via
++		 * zebra_l2_vxlanif_del() before if_delete_update() fires the
++		 * if_del hook, so this is a no-op there.  At zebra shutdown,
++		 * however, dplane delete events do not arrive, so we need to
++		 * release the VNI table here or the L2 VNI entries leak.
++		 *
++		 * Must guard on IS_ZEBRA_VXLAN_IF_SVD: for per-VNI VXLAN
++		 * interfaces vni_info->vni_table aliases the embedded
++		 * zebra_vxlan_vni struct via a union, so reading it as a hash
++		 * pointer would dereference garbage.
++		 */
++		if (IS_ZEBRA_IF_VXLAN(ifp) && IS_ZEBRA_VXLAN_IF_SVD(zebra_if))
++			zebra_vxlan_if_vni_table_destroy(zebra_if);
+ 		zebra_evpn_if_cleanup(zebra_if);
+ 		zebra_evpn_mac_ifp_del(ifp);
+ 
+diff --git a/zebra/zebra_evpn_mh.c b/zebra/zebra_evpn_mh.c
+index 2c95342ac587..de602f529024 100644
+--- a/zebra/zebra_evpn_mh.c
++++ b/zebra/zebra_evpn_mh.c
+@@ -826,7 +826,7 @@ void zebra_evpn_vl_vxl_ref(uint16_t vid, vni_t vni_id,
+ void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
+ 			     struct zebra_if *vxlan_zif)
+ {
+-	struct interface *br_if;
++	ifindex_t bridge_ifindex;
+ 	struct zebra_evpn_access_bd *acc_bd;
+ 	uint8_t tmp_cnt;
+ 
+@@ -836,11 +836,22 @@ void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
+ 	if (!vni_id)
+ 		return;
+ 
+-	br_if = vxlan_zif->brslave_info.br_if;
+-	if (!br_if)
++	/*
++	 * Use the stored bridge_ifindex rather than dereferencing
++	 * brslave_info.br_if. At zebra shutdown, vrf_terminate_single() ->
++	 * if_terminate() walks the per-VRF interface tree by name and frees
++	 * interfaces one by one; if the bridge is freed before the VxLAN
++	 * interface, the back pointer becomes a dangling reference. The
++	 * bridge_ifindex field is never invalidated this way, and
++	 * zebra_evpn_acc_vl_find_index() looks up the access-bd directly by
++	 * (vid, ifindex), avoiding the heap-use-after-free in
++	 * zebra_evpn_acc_vl_find()'s br_if->ifindex deref.
++	 */
++	bridge_ifindex = vxlan_zif->brslave_info.bridge_ifindex;
++	if (bridge_ifindex == IFINDEX_INTERNAL)
+ 		return;
+ 
+-	acc_bd = zebra_evpn_acc_vl_find(vid, br_if);
++	acc_bd = zebra_evpn_acc_vl_find_index(vid, bridge_ifindex);
+ 	if (!acc_bd)
+ 		return;
+ 	if (acc_bd->vni_refcnt > 1) {
+@@ -857,8 +868,8 @@ void zebra_evpn_vl_vxl_deref(uint16_t vid, vni_t vni_id,
+ 		return;
+ 
+ 	if (IS_ZEBRA_DEBUG_EVPN_MH_ES)
+-		zlog_debug("access vlan %d bridge %s vni %u deref", acc_bd->vid,
+-			   br_if->name, vni_id);
++		zlog_debug("access vlan %d bridge ifindex %u vni %u deref", acc_bd->vid,
++			   bridge_ifindex, vni_id);
+ 
+ 	if (acc_bd->zevpn)
+ 		zebra_evpn_acc_bd_evpn_set(acc_bd, NULL, acc_bd->zevpn);
+diff --git a/zebra/zebra_mpls.c b/zebra/zebra_mpls.c
+index 3325532ca920..c6bb8e619d10 100644
+--- a/zebra/zebra_mpls.c
++++ b/zebra/zebra_mpls.c
+@@ -4055,6 +4055,19 @@ static void lsp_table_free(void *p)
+ 	XFREE(MTYPE_LSP, lsp);
+ }
+ 
++static void zebra_mpls_fec_node_cleanup(struct route_table *table, struct route_node *node)
++{
++	struct zebra_fec *fec;
++
++	if (!node->info)
++		return;
++
++	fec = node->info;
++	list_delete(&fec->client_list);
++	XFREE(MTYPE_FEC, fec);
++	node->info = NULL;
++}
++
+ /*
+  * Called upon process exiting, need to delete LSP forwarding
+  * entries from the kernel.
+@@ -4089,6 +4102,8 @@ void zebra_mpls_init_tables(struct zebra_vrf *zvrf)
+ 	zvrf->lsp_table = hash_create_size(8, label_hash, label_cmp, buffer);
+ 	zvrf->fec_table[AFI_IP] = route_table_init();
+ 	zvrf->fec_table[AFI_IP6] = route_table_init();
++	zvrf->fec_table[AFI_IP]->cleanup = zebra_mpls_fec_node_cleanup;
++	zvrf->fec_table[AFI_IP6]->cleanup = zebra_mpls_fec_node_cleanup;
+ 	zvrf->mpls_flags = 0;
+ 	zvrf->mpls_srgb.start_label = MPLS_DEFAULT_MIN_SRGB_LABEL;
+ 	zvrf->mpls_srgb.end_label = MPLS_DEFAULT_MAX_SRGB_LABEL;
+diff --git a/zebra/zebra_routemap.c b/zebra/zebra_routemap.c
+index cdc05fe2ab1f..93e067f8308f 100644
+--- a/zebra/zebra_routemap.c
++++ b/zebra/zebra_routemap.c
+@@ -1196,10 +1196,32 @@ void zebra_route_map_set_delay_timer(uint32_t value)
+ 
+ void zebra_routemap_finish(void)
+ {
++	afi_t afi;
++	safi_t safi;
++	uint32_t table;
++
+ 	/* Set zebra_rmap_update_timer to 0 so that it wont schedule again */
+ 	zebra_rmap_update_timer = 0;
+ 	/* Thread off if any scheduled already */
+ 	event_cancel(&zebra_t_rmap_update);
++
++	/*
++	 * Release any per-import-table route-map name strings that were
++	 * never explicitly removed via "no ip import-table ...".  The import
++	 * table machinery only frees the string when the import is torn down
++	 * at runtime, so on a clean SIGTERM shutdown the configured names
++	 * leak.
++	 */
++	for (afi = AFI_IP; afi < AFI_MAX; afi++) {
++		for (safi = SAFI_UNICAST; safi < SAFI_MAX; safi++) {
++			for (table = 0; table < ZEBRA_KERNEL_TABLE_MAX; table++) {
++				if (zebra_import_table_routemap[afi][safi][table])
++					XFREE(MTYPE_ROUTE_MAP_NAME,
++					      zebra_import_table_routemap[afi][safi][table]);
++			}
++		}
++	}
++
+ 	route_map_finish();
+ }
+ 
+-- 
+2.47.3
+
