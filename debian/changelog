@@ -1,3 +1,9 @@
+frr (10.6.1-1+pve3) trixie; urgency=medium
+
+  * fix VTEP derivation for VXLAN interfaces without a local IP address
+
+ -- Proxmox Support Team <support@proxmox.com>  Sat, 01 Aug 2026 18:43:53 +0200
+
 frr (10.6.1-1+pve2) trixie; urgency=medium
 
   * fix leaked EVPN routes with wrong nexthop when ipv4 via ipv6 is used
