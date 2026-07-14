@@ -1,0 +1,84 @@
+From e8da5eda308db2cca319403b2a29ca9a0c6d996d Mon Sep 17 00:00:00 2001
+From: Gabriel Goller <g.goller@proxmox.com>
+Date: Thu, 2 Jul 2026 16:29:41 +0200
+Subject: [PATCH] bgpd, zebra: fix VXLAN interface local IP fallback
+
+FRR 10.6 breaks VXLAN interfaces that do not have a local IP. It changes
+EVPN VTEP handling from the IPv4 struct in_addr to the generic struct
+ipaddr for IPv6 VTEP support. That makes zebra store a missing VXLAN
+vxlan local address as IPADDR_NONE instead of IPv4 0.0.0.0.
+
+ZEBRA_VNI_ADD still uses the normal ipaddr stream helpers. These helpers
+reject IPADDR_NONE, so zebra no longer sends an add, and bgpd's existing
+router-id fallback for an unspecified VTEP never runs.
+
+Encode an IPADDR_NONE local VTEP as IPv4 0.0.0.0 when zebra builds
+ZEBRA_VNI_ADD. In bgpd, keep the fallback and treat IPv4/IPv6 zero as
+unspecified, so bgpd uses the router-id as the EVPN VTEP.
+
+Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
+---
+ bgpd/bgp_zebra.c   |  9 ++++++++-
+ zebra/zebra_evpn.c | 10 ++++++++--
+ 2 files changed, 16 insertions(+), 3 deletions(-)
+
+diff --git a/bgpd/bgp_zebra.c b/bgpd/bgp_zebra.c
+index d1034ff42a18..d6c09003a853 100644
+--- a/bgpd/bgp_zebra.c
++++ b/bgpd/bgp_zebra.c
+@@ -3440,9 +3440,16 @@ static int bgp_zebra_process_local_vni(ZAPI_CALLBACK_ARGS)
+ 			vrf_id_to_name(vrf_id), vni,
+ 			vrf_id_to_name(tenant_vrf_id), svi_ifindex);
+ 
+-	if (ipaddr_is_zero(&vtep_ip)) {
++	/* Preserve legacy behavior for VXLAN devices with no explicit local
++	 * address: treat IPv4/IPv6 zero as unspecified and use the router-id as
++	 * the EVPN VTEP/originator IP.
++	 */
++	if (cmd == ZEBRA_VNI_ADD && ipaddr_is_zero(&vtep_ip)) {
+ 		SET_IPADDR_V4(&vtep_ip);
+ 		vtep_ip.ipaddr_v4 = bgp->router_id;
++		if (BGP_DEBUG(zebra, ZEBRA))
++			zlog_debug("Rx VNI add with unspecified VTEP IP, using router-id %pIA",
++				   &vtep_ip);
+ 	}
+ 
+ 	if (cmd == ZEBRA_VNI_ADD) {
+diff --git a/zebra/zebra_evpn.c b/zebra/zebra_evpn.c
+index 258e818ec5d2..724d549a4f51 100644
+--- a/zebra/zebra_evpn.c
++++ b/zebra/zebra_evpn.c
+@@ -1102,6 +1102,7 @@ int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
+ 	struct zserv *client;
+ 	struct stream *s;
+ 	ifindex_t svi_index;
++	struct ipaddr local_vtep_ip;
+ 	int rc;
+ 
+ 	client = zserv_find_client(ZEBRA_ROUTE_BGP, 0);
+@@ -1115,7 +1116,12 @@ int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
+ 
+ 	zclient_create_header(s, ZEBRA_VNI_ADD, zebra_vrf_get_evpn_id());
+ 	stream_putl(s, zevpn->vni);
+-	stream_put_ipaddr(s, &zevpn->local_vtep_ip);
++	local_vtep_ip = zevpn->local_vtep_ip;
++	if (IS_IPADDR_NONE(&local_vtep_ip)) {
++		SET_IPADDR_V4(&local_vtep_ip);
++		local_vtep_ip.ipaddr_v4.s_addr = INADDR_ANY;
++	}
++	stream_put_ipaddr(s, &local_vtep_ip);
+ 	stream_put(s, &zevpn->vrf_id, sizeof(vrf_id_t)); /* tenant vrf */
+ 	stream_put_in_addr(s, &zevpn->mcast_grp);
+ 	stream_put(s, &svi_index, sizeof(ifindex_t));
+@@ -1125,7 +1131,7 @@ int zebra_evpn_send_add_to_client(struct zebra_evpn *zevpn)
+ 
+ 	if (IS_ZEBRA_DEBUG_VXLAN)
+ 		zlog_debug("Send EVPN_ADD %u %pIA tenant vrf %s(%u) SVI index %u to %s", zevpn->vni,
+-			   &zevpn->local_vtep_ip, vrf_id_to_name(zevpn->vrf_id), zevpn->vrf_id,
++			   &local_vtep_ip, vrf_id_to_name(zevpn->vrf_id), zevpn->vrf_id,
+ 			   (zevpn->svi_if ? zevpn->svi_if->ifindex : 0),
+ 			   zebra_route_string(client->proto));
+ 
+-- 
+2.47.3
+

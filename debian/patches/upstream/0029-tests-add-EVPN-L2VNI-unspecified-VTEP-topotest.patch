@@ -1,0 +1,153 @@
+From 347899ac7ce61bdae48ccef8f91894c2ab210b04 Mon Sep 17 00:00:00 2001
+From: Gabriel Goller <g.goller@proxmox.com>
+Date: Fri, 3 Jul 2026 13:40:11 +0200
+Subject: [PATCH] tests: add EVPN L2VNI unspecified VTEP topotest
+
+Add a short topotest that creates an L2VNI without a VXLAN local address
+and checks that bgpd uses the BGP router-id as the VTEP.
+
+Signed-off-by: Gabriel Goller <g.goller@proxmox.com>
+---
+ .../__init__.py                               |  0
+ .../r1/frr.conf                               | 17 +++++
+ .../r2/frr.conf                               | 16 ++++
+ .../test_bgp_evpn_vxlan_local_vtep_none.py    | 76 +++++++++++++++++++
+ 4 files changed, 109 insertions(+)
+ create mode 100644 tests/topotests/bgp_evpn_vxlan_local_vtep_none/__init__.py
+ create mode 100644 tests/topotests/bgp_evpn_vxlan_local_vtep_none/r1/frr.conf
+ create mode 100644 tests/topotests/bgp_evpn_vxlan_local_vtep_none/r2/frr.conf
+ create mode 100644 tests/topotests/bgp_evpn_vxlan_local_vtep_none/test_bgp_evpn_vxlan_local_vtep_none.py
+
+diff --git a/tests/topotests/bgp_evpn_vxlan_local_vtep_none/__init__.py b/tests/topotests/bgp_evpn_vxlan_local_vtep_none/__init__.py
+new file mode 100644
+index 000000000000..e69de29bb2d1
+diff --git a/tests/topotests/bgp_evpn_vxlan_local_vtep_none/r1/frr.conf b/tests/topotests/bgp_evpn_vxlan_local_vtep_none/r1/frr.conf
+new file mode 100644
+index 000000000000..3b88e4b614f8
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_vxlan_local_vtep_none/r1/frr.conf
+@@ -0,0 +1,17 @@
++!
++interface lo
++ ip address 10.0.0.1/32
++!
++interface r1-eth0
++ ip address 192.0.2.1/24
++!
++router bgp 65000
++ bgp router-id 10.0.0.1
++ no bgp default ipv4-unicast
++ neighbor 192.0.2.2 remote-as 65000
++ !
++ address-family l2vpn evpn
++  neighbor 192.0.2.2 activate
++  advertise-all-vni
++ exit-address-family
++!
+diff --git a/tests/topotests/bgp_evpn_vxlan_local_vtep_none/r2/frr.conf b/tests/topotests/bgp_evpn_vxlan_local_vtep_none/r2/frr.conf
+new file mode 100644
+index 000000000000..5d6d8c7a57bb
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_vxlan_local_vtep_none/r2/frr.conf
+@@ -0,0 +1,16 @@
++!
++interface lo
++ ip address 10.0.0.2/32
++!
++interface r2-eth0
++ ip address 192.0.2.2/24
++!
++router bgp 65000
++ bgp router-id 10.0.0.2
++ no bgp default ipv4-unicast
++ neighbor 192.0.2.1 remote-as 65000
++ !
++ address-family l2vpn evpn
++  neighbor 192.0.2.1 activate
++ exit-address-family
++!
+diff --git a/tests/topotests/bgp_evpn_vxlan_local_vtep_none/test_bgp_evpn_vxlan_local_vtep_none.py b/tests/topotests/bgp_evpn_vxlan_local_vtep_none/test_bgp_evpn_vxlan_local_vtep_none.py
+new file mode 100644
+index 000000000000..876fc40fa73c
+--- /dev/null
++++ b/tests/topotests/bgp_evpn_vxlan_local_vtep_none/test_bgp_evpn_vxlan_local_vtep_none.py
+@@ -0,0 +1,76 @@
++#!/usr/bin/env python
++# SPDX-License-Identifier: ISC
++
++"""
++Verify that an L2VNI with no VXLAN local address reaches bgpd and uses the
++router-id as its originator IP.
++"""
++
++import os
++import sys
++import pytest
++
++CWD = os.path.dirname(os.path.realpath(__file__))
++sys.path.append(os.path.join(CWD, "../"))
++
++# pylint: disable=C0413
++from lib import topotest
++from lib.topogen import Topogen, get_topogen
++
++pytestmark = [pytest.mark.bgpd, pytest.mark.evpn]
++
++VNI = 101
++ROUTER_ID = "10.0.0.1"
++
++
++def setup_module(mod):
++    topodef = {"s1": ("r1", "r2")}
++    tgen = Topogen(topodef, mod.__name__)
++    tgen.start_topology()
++
++    router = tgen.gears["r1"]
++    router.cmd_raises(f"ip link add name br{VNI} type bridge")
++    router.cmd_raises("ip link set dev r1-eth0 up")
++    router.cmd_raises(
++        f"ip link add vxlan{VNI} type vxlan id {VNI} dstport 4789 "
++        "group 239.1.1.1 dev r1-eth0 nolearning"
++    )
++    router.cmd_raises(f"ip link set dev vxlan{VNI} master br{VNI}")
++    router.cmd_raises(f"ip link set dev br{VNI} up")
++    router.cmd_raises(f"ip link set dev vxlan{VNI} up")
++
++    for router in tgen.routers().values():
++        router.load_frr_config()
++
++    tgen.start_router()
++
++
++def teardown_module(mod):
++    tgen = get_topogen()
++    tgen.stop_topology()
++
++
++def test_bgp_vni_without_local_vtep_uses_router_id():
++    tgen = get_topogen()
++
++    if tgen.routers_have_failure():
++        pytest.skip(tgen.errors)
++
++    router = tgen.gears["r1"]
++
++    def _check_bgp_vni():
++        output = router.vtysh_cmd(
++            f"show bgp l2vpn evpn vni {VNI} json", isjson=True
++        )
++        expected = {"originatorIp": ROUTER_ID}
++        return topotest.json_cmp(output, expected)
++
++    _, result = topotest.run_and_expect(_check_bgp_vni, None, count=30, wait=1)
++    assert result is None, (
++        f"VNI {VNI} originator IP did not fall back to router-id {ROUTER_ID}"
++    )
++
++
++if __name__ == "__main__":
++    args = ["-s"] + sys.argv[1:]
++    sys.exit(pytest.main(args))
+-- 
+2.47.3
+

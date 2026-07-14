@@ -25,6 +25,8 @@ upstream/0024-Cleanup-snmp-memory-leaks.patch
 upstream/0025-pimd-cleanup-of-leaked-memory-on-shutdown.patch
 upstream/0026-tests-make-the-topotest-fail-if-a-memory-leak-is-det.patch
 upstream/0027-Use-hash_clean_and_free-remove-hash_free.patch
+upstream/0028-bgpd-zebra-fix-VXLAN-interface-local-IP-fallback.patch
+upstream/0029-tests-add-EVPN-L2VNI-unspecified-VTEP-topotest.patch
 pve/0001-enable-bgp-bfd-daemons.patch
 pve/0002-bgpd-add-an-option-for-RT-auto-derivation-to-force-A.patch
 pve/0003-tests-add-bgp-evpn-autort-test.patch
