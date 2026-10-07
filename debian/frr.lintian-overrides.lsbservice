@@ -1,0 +1,5 @@
+
+# Only installed by the pkg.frr.lsbservice build (see the Makefile), which is
+# meant for systemd-free derivatives like Devuan: there are intentionally no
+# systemd units for the init script, systemd users get the default build.
+missing-systemd-service-for-init.d-script

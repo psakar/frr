@@ -38,9 +38,20 @@ $(BUILDDIR): submodule debian/changelog
 	rm -rf $@ $@.tmp
 	cp -a $(SRCDIR) $@.tmp
 	rm $@.tmp/debian/changelog $@.tmp/debian/compat
+ifneq (,$(filter pkg.frr.lsbservice,$(DEB_BUILD_PROFILES)))
+# for systemd-free derivatives like Devuan (sysvinit or OpenRC): upstream's
+# frrinit.sh as /etc/init.d/frr instead of the units, likewise neither enabled
+# nor started on installation
+	sed -i '/build\/tools\/frr@\{0,1\}\.service/d' $@.tmp/debian/rules
+	sed -i 's/dh_installinit -r$$/dh_installinit -r --no-enable --no-start/' $@.tmp/debian/rules
+else
 	sed -i '/frrinit\.sh/d' $@.tmp/debian/rules
 	sed -i 's/dh_installsystemd -r/dh_installsystemd -r --no-enable --no-start/' $@.tmp/debian/rules
+endif
 	cp -a debian/* $@.tmp/debian/
+ifneq (,$(filter pkg.frr.lsbservice,$(DEB_BUILD_PROFILES)))
+	cat debian/frr.lintian-overrides.lsbservice >>$@.tmp/debian/frr.lintian-overrides
+endif
 	mv $@.tmp $@
 
 $(ORIG_SRC_TAR): $(BUILDDIR)
