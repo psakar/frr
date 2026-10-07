@@ -1,3 +1,11 @@
+frr (10.6.1-1+pve3+devuan1) trixie; urgency=medium
+
+  * build for systemd-free derivatives like Devuan (sysvinit or OpenRC),
+    with the init-system changes of the feature/init-systems-refactoring
+    branch; built with the pkg.frr.lsbservice profile
+
+ -- Petr Sakař <petr.sakar@chare.eu>  Thu, 08 Oct 2026 00:24:59 +0200
+
 frr (10.6.1-1+pve3) trixie; urgency=medium
 
   * fix VTEP derivation for VXLAN interfaces without a local IP address
